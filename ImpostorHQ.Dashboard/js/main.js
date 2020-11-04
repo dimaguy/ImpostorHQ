@@ -77,7 +77,8 @@ function connect() {
 
 			case MessageFlags.HeartbeatMessage:
 				var tokens = msg.Text.split("-");
-				document.getElementById("hblabel").innerHTML = "Lobbies: " + tokens[0] + " Players: " + tokens[1];
+				document.getElementById("Lobbies").innerHTML = tokens[0];
+				document.getElementById("Players").innerHTML = tokens[1];
 				console.log("Heartbeat received.")
 			break;
 
