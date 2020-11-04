@@ -1,0 +1,60 @@
+<html>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<head>
+		<title>ImpostorHQ</title>
+	
+		<link rel="icon" type="image/png" href="favicon.png"/>
+		<link rel="stylesheet" href="dark.css">
+		<link rel="stylesheet" href="align.css">
+		<link rel="stylesheet" href="w3.css">
+
+		<style>
+			html, body {
+				font-family:'Open Sans', 'Lucida Grande', Arial, Helvetica, sans-serif;
+				background-color: #141414;
+				max-width: none;
+			}
+		</style>
+		<script src="main.js"></script>
+
+	</head>
+	<body style="width:100%;">
+		<main>
+			<div class="header-img">
+				<!--Don't put anything in here!-->
+			</div>
+			<div class="header"> 
+				<p style="font-size:1vw;" id="hblabel"></p>
+			</div>
+
+		</main>
+
+		<div style="height: 100%; width: 100%; display: grid; grid-template-rows:12% auto auto; grid-template-columns:auto auto;">
+			<div>
+				<!--<p style="display: inline; vertical-align: middle;">Api-key</p>-->
+				<input id="apikey" name="apikey" type="password" maxlength="50" placeholder="Your Api Key" style="display: inline;">
+				<input type="button" name="login" value="Log in" onclick="connect()" style="display: inline;">
+				<p id="status" style="display: inline;"></p>
+			</div>
+			<div></div>
+			<div>
+					<!--same thing here
+					<td width="120px" align="top" border="1" height="100%">
+						<div id="userlistbox" style="border: 1px solid black; width:100%; height:100%;"></div>
+
+						before : h98 , w92
+					</td>
+					 -->
+				<textarea style="color:lime; height:98%; width:92%" name="Console" id="chatbox" placeholder="" readonly></textarea>
+			</div>
+			<div></div>
+			<div>	
+				<input id="text" type="text" name="text" style="width:79%; display:inline;" maxlength="256" placeholder="Command" autocomplete="off" onkeyup="handleKey(event)"disabled>
+				<input type="button" id="send" name="send" value="Send" onclick="send()" style="display: inline;" disabled>			
+			</div>
+	  </div>
+	
+	</body>
+	
+</html>
