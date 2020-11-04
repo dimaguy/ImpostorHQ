@@ -9,6 +9,9 @@ namespace Impostor.Commands.Core
 {
     public class Structures
     {
+        /// <summary>
+        /// 
+        /// </summary>
         public static class MessageFlag
         {
             public const string LoginApiRequest = "0";      // A request to log in, with a given API key.
@@ -47,12 +50,6 @@ namespace Impostor.Commands.Core
             public const string HelpMessage = "/help";
             public const string StatusMessage = "/status";
             public const string BansMessage = "/bans";
-
-            public const string OnHelpMessage =
-                "Dashboard commands:\n" +
-                "  /broadcast [message] - used to broadcast to the chat of all lobbies.\n" +
-                "  /status - used to get some general server status.\n" +
-                "  /bans - used to get a list of permanent bans.\n";
         }
 
         public class Exceptions
@@ -65,6 +62,11 @@ namespace Impostor.Commands.Core
             public class CommandPrefixException : Exception
             {
                 public CommandPrefixException() : base("Command registration error : Commands must start with '/'.") { }
+            }
+
+            public class PleaseProvideDocsException : Exception
+            {
+                public PleaseProvideDocsException() : base("Please provide docs for the command!") {}
             }
         }
 

@@ -16,6 +16,7 @@ namespace Impostor.Commands.Core
 {
     public class GamePluginInterface : IEventListener
     {
+        //
         public GameCommandChatInterface Utils{ get; set; }
         /// <summary>
         /// This is our event handler. It is an interface for interacting with the game.

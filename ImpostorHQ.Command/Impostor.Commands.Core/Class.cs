@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using Fleck;
 using System.IO;
 using System.Linq;
@@ -11,7 +10,6 @@ using Impostor.Api.Net.Messages;
 using Impostor.Api.Events.Player;
 using Microsoft.Extensions.Logging;
 using Impostor.Commands.Core.DashBoard;
-using Microsoft.VisualBasic.CompilerServices;
 
 #region Impostor API Imports
 using Impostor.Api.Games;
@@ -25,6 +23,7 @@ namespace Impostor.Commands.Core
     [ImpostorPlugin("ImpostorHQ","Impostor HeadQuarters API","anti, Dimaguy","0.0.1 dev")]
     public class Class : PluginBase
     {
+        #region Members
         //indicates that the plugin is active.
         public bool Running { get; private set; }
         //the main thread.
@@ -51,6 +50,7 @@ namespace Impostor.Commands.Core
         public JusticeSystem HighCourt{ get; set; }
         public GameCommandChatInterface ChatInterface { get; set; }
         public IEventManager EventManager{ get; set; }
+        #endregion
         /// <summary>
         /// This constructor will be 'injected' with the required references by the plugin API.
         /// </summary>
@@ -93,11 +93,10 @@ namespace Impostor.Commands.Core
             ApiServer.Shutdown();
             DashboardServer.Shutdown();
             Configuration.SaveTo(ConfigPath);
-            MainThread.Abort();
             return default;
         }
         #endregion
-
+        //
         /// <summary>
         /// Our main thread. This executes all our code.
         /// </summary>
@@ -112,7 +111,7 @@ namespace Impostor.Commands.Core
                 cfg.SaveTo(ConfigPath);
                 this.Configuration = cfg;
                 //we need to create some keys.
-                Logger.LogInformation($"Impostor.Commands : Detected first run. Your API key : {cfg.APIKeys[0]}");
+                Logger.LogInformation($"ImpostorHQ : Detected first run. Your API key : {cfg.APIKeys[0]}");
             }
             else
             {
@@ -134,6 +133,7 @@ namespace Impostor.Commands.Core
             GameEventListener.RegisterCommand(GamePluginInterface.CommandPrefixes.TestCommand);
             GameEventListener.RegisterCommand(GamePluginInterface.CommandPrefixes.ReportCommand);
             
+            //we are ready to start listening for game events.
             EventManager.RegisterListener(GameEventListener);
             GameEventListener.OnPlayerCommandReceived += GameEventListener_OnPlayerCommandReceived;
             GameEventListener.OnPlayerSpawnedFirst += GameEventListener_OnPlayerSpawnedFirst;
@@ -145,9 +145,14 @@ namespace Impostor.Commands.Core
             var error404Html = File.ReadAllText(Path.Combine("dashboard", "404.html"));
             var errorMimeHtml = File.ReadAllText(Path.Combine("dashboard", "mime.html"));
             //we initialize our servers and set up the events.
-            this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys, Logger);
+            this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys, Logger,GameManager);
             this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml);
             ApiServer.OnMessageReceived += DashboardCommandReceived;
+
+            ApiServer.RegisterCommand(Structures.DashboardCommands.BansMessage,"=> will list the current permanent bans.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.HelpMessage, "=> will display the help message.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.ServerWideBroadcast," <your message here> => will send a message to all lobbies.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.StatusMessage,"=> will show you some general statistics about the server.");
         }
 
         private void PlayerBanned(string username, string IP)
@@ -247,7 +252,13 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
-                        ApiServer.PushTo(Structures.DashboardCommands.OnHelpMessage,Structures.ServerSources.SystemInfo, Structures.MessageFlag.ConsoleLogMessage, client);
+
+                        var helpstr = "Dashboard commands : \n";
+                        foreach (var command in ApiServer.Commands)
+                        {
+                            helpstr += "  " + command.Key + " " + command.Value + "\n";
+                        }
+                        ApiServer.PushTo(helpstr,Structures.ServerSources.SystemInfo, Structures.MessageFlag.ConsoleLogMessage, client);
                         break;
                     }
                     case Structures.DashboardCommands.StatusMessage:
@@ -301,13 +312,11 @@ namespace Impostor.Commands.Core
                 //invalid messagereturn;
             }
         }
-       
         
-
         /// <summary>
         /// We use this function to construct a response to the status request.
         /// </summary>
-        /// <returns>The reponse to send back.</returns>
+        /// <returns>The response to send back.</returns>
         private string CompileStatus()
         {
             StringBuilder sb = new StringBuilder();
