@@ -11,6 +11,7 @@ namespace Impostor.Commands.Core
 {
     public class JusticeSystem
     {
+        //
         //  we need a storage for reports (that are not bans, yet)
         public List<Structures.Report> IpReports = new List<Structures.Report>();
         //  we need a storage for permanent bans. This is also present on the DISK.

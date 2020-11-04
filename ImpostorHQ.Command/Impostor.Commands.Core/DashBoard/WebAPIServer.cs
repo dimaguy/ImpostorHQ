@@ -5,17 +5,24 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Fleck;
+using Impostor.Api.Games.Managers;
 using Microsoft.Extensions.Logging;
 
 namespace Impostor.Commands.Core.DashBoard
 {
     public class WebApiServer
     {
-        // A list of authenticated clients.
         #pragma warning disable IDE0044 // Add readonly modifier
+        //  this shows if the server is running.
+        public bool Running { get; private set; }
+        // A list of authenticated clients.
         List<IWebSocketConnection> Clients = new List<IWebSocketConnection>();
         // A message that will be sent to all clients connected.
         private Structures.BaseMessage GlobalMessage { get; set; }
+        //  we need to store our commands for the handlers.
+        public Dictionary<string,string> Commands { get; private set; }
+        //  This is used in the parallel command parser.
+        public ParallelOptions Options { get; private set; }
         // A list of accepted keys for authentication.
         private List<string> ApiKeys { get; set; }
         // The web socket server.
@@ -23,7 +30,9 @@ namespace Impostor.Commands.Core.DashBoard
         // The global logger, to write warnings and errors to the console.
         private ILogger<Class> Logger { get; set; }
         #pragma warning restore IDE0044 // Add readonly modifier
-
+        //  The global game manager. Here, we use it to get statistics.
+        private IGameManager GameManager { get; set; }
+        public Thread HeartbeatThread { get; private set; }
         /// <summary>
         /// This will host an API server, that can be accessed with the given API keys.
         /// </summary>
@@ -31,9 +40,14 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="listenInterface">The interface to bind the socket to.</param>
         /// <param name="keys">The accepted API keys.</param>
         /// <param name="logger">The global logger.</param>
-        public WebApiServer(ushort port, string listenInterface,string[] keys,ILogger<Class> logger)
+        public WebApiServer(ushort port, string listenInterface,string[] keys,ILogger<Class> logger, IGameManager manager)
         {
+            this.Running = true;
+            this.Commands = new Dictionary<string, string>();
+            Options = new ParallelOptions();
+            Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
             this.Logger = logger;
+            this.GameManager = manager;
             //we initialize our objects.
             GlobalMessage = new Structures.BaseMessage();
             ApiKeys = new List<string>();
@@ -46,20 +60,40 @@ namespace Impostor.Commands.Core.DashBoard
                 //a client connects.
                 socket.OnOpen += () => OnOpen(socket);
             });
+            HeartbeatThread = new Thread(DoHeartbeat);
+            HeartbeatThread.Start();
         }
 
+        /// <summary>
+        /// This is used to register a command to the parser, and add documentation for the dashboard.. The command must start with '/'. Warning: It will be automatically lowercased. Please provide proper documentation!
+        /// </summary>
+        /// <param name="command">The command to register. If it is already registered, it will not be duplicated.</param>
+        /// <param name="docs">Command documentation. Ideally, it should be a phrase describing the function of the command to the dashboard admin.</param>
+        public void RegisterCommand(string command, string docs)
+        {
+            if (!command.StartsWith("/")) throw new Structures.Exceptions.CommandPrefixException();
+            if(String.IsNullOrEmpty(docs)||String.IsNullOrWhiteSpace(docs)||docs.Length<5) throw new Structures.Exceptions.PleaseProvideDocsException();
+            lock (Commands)
+            {
+                if (!Commands.ContainsKey(command))
+                {
+                    Commands.Add(command.ToLower(),docs);
+                }
+            }
+        }
         /// <summary>
         /// Will push a final status update to the API clients and shut down the API server.
         /// </summary>
         public void Shutdown()
         {
+            this.Running = false;
             Push("Impostor server shutting down...",Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.DoKickOrDisconnect);
             Server.Dispose();
             ApiKeys.Clear();
         }
         
         /// <summary>
-        /// A cliet has connected to the websocket server.
+        /// A client has connected to the websocket server.
         /// </summary>
         /// <param name="conn">The client to process.</param>
         private void OnOpen(IWebSocketConnection conn)
@@ -142,7 +176,21 @@ namespace Impostor.Commands.Core.DashBoard
         private void MessageReceived(Structures.BaseMessage message,IWebSocketConnection conn)
         {
             //the dashboard clients should not be sending something that does not start with '/'.
-            if(message.Text.StartsWith("/")) OnMessageReceived?.Invoke(message,conn);
+            if (message.Text.StartsWith("/"))
+            {
+                lock (Commands)
+                {
+                    Parallel.ForEach(Commands, Options, (prefix, state) =>
+                    {
+                        if (message.Text.StartsWith(prefix.Key))
+                        {
+                            
+                            OnMessageReceived?.Invoke(message,conn);
+                            state.Break();
+                        }
+                    });
+                }
+            }
         }
 
         /// <summary>
@@ -233,9 +281,38 @@ namespace Impostor.Commands.Core.DashBoard
         public static ulong GetTime()
         {
             TimeSpan t = DateTime.UtcNow - new DateTime(1970, 1, 1);
-            return (ulong)t.TotalSeconds;
+            return (ulong)t.TotalMilliseconds;
         }
 
+        public void DoHeartbeat()
+        {
+            while (Running)
+            {
+                lock (Clients)
+                {
+                    if (Clients.Count > 0)
+                    {
+                        Push(CompileNumbers(),string.Empty,Structures.MessageFlag.HeartbeatMessage);
+                    }
+                }
+                Thread.Sleep(5000);
+            }
+        }
+
+        public string CompileNumbers()
+        {
+            ulong players = 0, games = 0; //never going to need so much...
+            foreach (var game in GameManager.Games)
+            {
+                games++;
+                foreach (var player in game.Players)
+                {
+                    players++;
+                }
+            }
+
+            return games + "-" + players;
+        }
 
         public delegate void DelMessageReceived(Structures.BaseMessage message,IWebSocketConnection connection);
 

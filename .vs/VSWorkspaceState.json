@@ -1,8 +1,9 @@
 {
   "ExpandedNodes": [
     "",
-    "\\ImpostorHQ-Command"
+    "\\ImpostorHQ.Command",
+    "\\ImpostorHQ.Command\\Impostor.Commands.Core"
   ],
-  "SelectedNode": "\\ImpostorHQ-Command\\Impostor.Command.sln",
+  "SelectedNode": "\\ImpostorHQ.Command\\Impostor.Commands.Core\\Class.cs",
   "PreviewInSolutionExplorer": false
 }

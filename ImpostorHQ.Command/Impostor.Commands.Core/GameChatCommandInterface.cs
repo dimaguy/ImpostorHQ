@@ -13,6 +13,7 @@ namespace Impostor.Commands.Core
 {
     public class GameCommandChatInterface
     {
+        //
         //  a list of registered commands.
         public List<string> Commands { get; private set; }
         //  the options required for parallel parsing operations.
@@ -234,7 +235,6 @@ namespace Impostor.Commands.Core
                 });
             }
         }
-       
 
         public delegate void DelCommandInvoked(string command, string data, IPlayerChatEvent source);
         public event DelCommandInvoked OnCommandInvoked;
