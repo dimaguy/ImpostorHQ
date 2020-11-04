@@ -1,22 +1,23 @@
+"use strict";
+var connection = null;
+var y = null;
+var x = null;
+
 function connect() {
-	//this function is used to connect to the server, and log in.
 	var serverUrl;
 	var scheme = "ws";
-	
-	//we must check if the website is using SSL.
+
 	if (document.location.protocol === "https:") {
 		scheme += "s";
 	}
 	
-	//the listenport value will be replaced by the loader.
 	serverUrl = scheme + "://" + document.location.hostname + ":22023";
 
 	connection = new WebSocket(serverUrl);
-	console.log("[DBG] Created WebSocket.");
+	console.log("***CREATED WEBSOCKET");
   
 	connection.onopen = function(evt) {
-		//now that we are connected, we must authenticate.
-		console.log("[DBG] WebSocket connected.");
+		console.log("***ONOPEN");
 		document.getElementById("status").innerHTML = "";
 		var auth = {
 			Text: document.getElementById("apikey").value,
@@ -25,9 +26,8 @@ function connect() {
 		};
 		connection.send(JSON.stringify(auth));
 	};
-	console.log("WebSocket OnOpen is now hooked.");
+	console.log("***CREATED ONOPEN");
 
-	//we got a weird error, from the network...
 	connection.onerror = function(event) {
 		console.error("WebSocket error observed: ", event);
 		document.getElementById("status").innerHTML = "WebSocket Error: " + event.type;
@@ -35,52 +35,50 @@ function connect() {
 		document.getElementById("text").disabled = true;
 		document.getElementById("send").disabled = true;
 	};
-	console.log("WebSocket OnError is now hooked.");
+	console.log("***CREATED ONERROR");
 
-	//we have received a mesage from the server.
-	//here, we handle everything related to server messages, including authentication.
 	connection.onmessage = function(evt) {
-		console.log("WebSocket message received.");
+		console.log("***ONMESSAGE");
 		var box = document.getElementById("chatbox");
-		var final_text = "";
-		var json_data = JSON.parse(evt.data);
-		console.dir(json_data);
-		var time = new Date(json_data.Date);
+		var text = "";
+		var msg = JSON.parse(evt.data);
+		console.log("Message received: ");
+		console.dir(msg);
+		var time = new Date(msg.Date);
 		var timeStr = time.toLocaleTimeString();
 
-		switch(json_data.Type) {
+		switch(msg.Type) {
 			case MessageFlags.ConsoleLogMessage:
-				final_text = "(" + timeStr + ") [" + json_data.Name + "] : " + json_data.Text + "\n";
-			break;
-			case MessageFlags.LoginApiAccepted: //	MessageType : LoginApiAccepted
-				document.getElementById("status").innerHTML = "Logged in!";
+				text = "(" + timeStr + ") [" + msg.Name + "] : " + msg.Text + "\n";
+				break;
+			case MessageFlags.LoginApiAccepted:
 				document.getElementById("status").style.color = "green";
+				document.getElementById("status").innerHTML = "Logged in!";
 				document.getElementById("text").value = "";
 				document.getElementById("text").disabled = false;
 				document.getElementById("send").disabled = false;
-				console.log("Authenticated.")
+				console.log("AUTHED");
 			break;
 
 			case MessageFlags.LoginApiRejected:
 				document.getElementById("status").style.color = "red";
-				document.getElementById("status").innerHTML = "Api Key Rejected!";
+				document.getElementById("status").innerHTML = "Api Key Error!";
 				document.getElementById("text").disabled = true;
 				document.getElementById("send").disabled = true;
 			break;
 
 			case MessageFlags.DoKickOrDisconnect:
 				document.getElementById("status").style.color = "red";
-				document.getElementById("status").innerHTML = "Kicked:" + json_data.Text;
+				document.getElementById("status").innerHTML = "Kicked:" + msg.Text;
 				document.getElementById("text").value = "";
 				document.getElementById("text").disabled = true;
 				document.getElementById("send").disabled = true;
 			break;
 
 			case MessageFlags.HeartbeatMessage:
-				var tokens = json_data.Text.split("-");
+				var tokens = msg.Text.split("-");
 				document.getElementById("hblabel").innerHTML = "Lobbies: " + tokens[0] + " Players: " + tokens[1];
 				console.log("Heartbeat received.")
-			
 			break;
 
 			//	commented out for now, but could be used to transmit game room list
@@ -95,8 +93,8 @@ function connect() {
 			//        break;
 		}
 
-		if (final_text.length) {
-			  box.value += final_text; 
+		if (text.length) {
+			  box.value += text; 
 			  box.scrollTop = box.scrollHeight; 
 		}
 	};
@@ -129,9 +127,9 @@ const MessageFlags =
 	LoginApiRequest : "0",      // A request to log in, with a given API key.
     LoginApiAccepted : "1",     // The API Key is correct, so the login is successful.
     LoginApiRejected : "2",     // The API key is incorrect, so the login is rejected.
-    ConsoleLogMessage : "3",    // The only working text message, so far.
+    ConsoleLogMessage : "3",    // Server Message
     ConsoleCommand : "4",       // A command sent from the dashboard to the API.
-    HeartbeatMessage : "5",     // Not implemented yet.
+    HeartbeatMessage : "5",     // Quick sanity check with some statistics
     GameListMessage : "6",      // Not implemented yet.
-    DoKickOrDisconnect : "7"    // A message when a client is kicked (not implemented) or the server shuts down.
+    DoKickOrDisconnect : "7"    // A message when a client is kicked or the server shuts down.
 }

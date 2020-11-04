@@ -1,36 +1,37 @@
-<html>
+﻿<html>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<head>
 		<title>ImpostorHQ</title>
-	
-		<link rel="icon" type="image/png" href="favicon.png"/>
-		<link rel="stylesheet" href="dark.css">
-		<link rel="stylesheet" href="align.css">
-		<link rel="stylesheet" href="w3.css">
-
+		<link rel="apple-touch-icon" sizes="57x57" href="ico/apple-icon-57x57.png">
+		<link rel="apple-touch-icon" sizes="60x60" href="ico/apple-icon-60x60.png">
+		<link rel="apple-touch-icon" sizes="72x72" href="ico/apple-icon-72x72.png">
+		<link rel="apple-touch-icon" sizes="76x76" href="ico/apple-icon-76x76.png">
+		<link rel="apple-touch-icon" sizes="114x114" href="ico/apple-icon-114x114.png">
+		<link rel="apple-touch-icon" sizes="120x120" href="ico/apple-icon-120x120.png">
+		<link rel="apple-touch-icon" sizes="144x144" href="ico/apple-icon-144x144.png">
+		<link rel="apple-touch-icon" sizes="152x152" href="ico/apple-icon-152x152.png">
+		<link rel="apple-touch-icon" sizes="180x180" href="ico/apple-icon-180x180.png">
+		<link rel="icon" type="image/png" sizes="192x192" href="ico/android-icon-192x192.png">
+		<link rel="icon" type="image/png" sizes="32x32" href="ico/favicon-32x32.png">
+		<link rel="icon" type="image/png" sizes="96x96" href="ico/favicon-96x96.png">
+		<link rel="icon" type="image/png" sizes="16x16" href="ico/favicon-16x16.png">
+		<meta name="msapplication-TileColor" content="#ffffff">
+		<meta name="msapplication-TileImage" content="/ms-icon-144x144.png">
+		<meta name="theme-color" content="#ffffff">		
+		<link rel="stylesheet" href="css/water.css">
+		<link rel="stylesheet" href="css/align.css">
 		<style>
 			html, body {
-				font-family:'Open Sans', 'Lucida Grande', Arial, Helvetica, sans-serif;
+				font-family: 'Open Sans', 'Lucida Grande', 'Arial', 'Helvetica', 'sans-serif';
 				background-color: #141414;
 				max-width: none;
 			}
 		</style>
-		<script src="main.js"></script>
-
+		<script src="js/main.js"></script>
 	</head>
-	<body style="width:100%;">
-		<main>
-			<div class="header-img">
-				<!--Don't put anything in here!-->
-			</div>
-			<div class="header"> 
-				<p style="font-size:1vw;" id="hblabel"></p>
-			</div>
-
-		</main>
-
-		<div style="height: 100%; width: 100%; display: grid; grid-template-rows:12% auto auto; grid-template-columns:auto auto;">
+	<body>
+		<div style="height: 100%; width: 100%; display: grid; grid-template-rows:45px auto auto; grid-template-columns:auto auto;">
 			<div>
 				<!--<p style="display: inline; vertical-align: middle;">Api-key</p>-->
 				<input id="apikey" name="apikey" type="password" maxlength="50" placeholder="Your Api Key" style="display: inline;">
@@ -54,7 +55,5 @@
 				<input type="button" id="send" name="send" value="Send" onclick="send()" style="display: inline;" disabled>			
 			</div>
 	  </div>
-	
 	</body>
-	
 </html>
