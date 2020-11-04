@@ -79,7 +79,7 @@ function connect() {
 				var tokens = msg.Text.split("-");
 				document.getElementById("Lobbies").innerHTML = tokens[0];
 				document.getElementById("Players").innerHTML = tokens[1];
-				console.log("Heartbeat received.")
+				console.log("HEARTBEAT")
 			break;
 
 			//	commented out for now, but could be used to transmit game room list
@@ -99,16 +99,15 @@ function connect() {
 			  box.scrollTop = box.scrollHeight; 
 		}
 	};
-	console.log("WebSocket message callback active.");
+	console.log("***CREATED ONMESSAGE");
 
 }
 
 function send() {
-	//this will send a message over the socket, to our server.
 	console.log("***SEND");
 	var msg = {
 		Text: document.getElementById("text").value,
-		Type: MessageFlags.ConsoleCommand, //message
+		Type: MessageFlags.ConsoleCommand,
 		Date: Date.now()
 	};
 	connection.send(JSON.stringify(msg));
@@ -116,7 +115,6 @@ function send() {
 }
 
 function handleKey(evt) {
-	//this will handle keys that trigger events. [e.g : enter will send the command]
 	if (evt.keyCode === 13 || evt.keyCode === 14) {
 		if (!document.getElementById("send").disabled) {
 		send();
