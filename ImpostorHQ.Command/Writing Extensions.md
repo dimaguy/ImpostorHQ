@@ -1,6 +1,6 @@
 # Writing extensions
 Please follow the example in order to write extensions to this project. Here are the most important points : 
-## Preresequites : 
+## Prerequisites : 
 ###### Main class constructor.
 In order to use the APIs, you need the following:
 ###### `ILogger<Class> logger, IEventManager manager, IGameManager gameManager,IMessageWriterProvider provider`
@@ -97,10 +97,10 @@ This will broadcast your message to the specified game.
 This will send a message to a specific player. It's implementation is more complex than the rest, because it is forging a packet manually.
 
 
-## The ban system.
-The ban system is an example extension. It handles reports, and hooks the command `/report hacking <player name> '<Reason for the report.>'`. It has a simple disk database, and has an event which is triggered when a player is permanently banned. Now, the bans are IP Address based, so they may be deleted once they get old, because, most of the time, addresses are dynamic.
+## The Moderation System.
+The Moderation System is an example of a well-written extension. It handles reports, and hooks the command `/report hacking <player name> '<Reason for the report.>'`. It has a simple disk database, and has an event which is triggered when a player is permanently banned. Now, the bans are IP Address based, so they may be deleted once they get old, because, most of the time, IP addresses are dynamic.
 Please refer to the source code for more information.
 
 
 # The client
-The cient is a web application, written in HTML/JS/CSS. It is delivered by the integrated HTTP server (`antiHTTP`), and is responsable for communication with the WebAPI. You may tweak the code to your needs. It provides an administration console, for sending commands and viewing them, some tables for general monitoring, and graphs for server load. 
+The cient is a web application, written in regular HTML/JS/CSS. It is delivered by the integrated HTTP server (`antiHTTP`), and is responsable for communication with the WebAPI. You may tweak the code to your needs. It provides an administration console, for sending commands and viewing them, some tables for general monitoring, and graphs for server load. 

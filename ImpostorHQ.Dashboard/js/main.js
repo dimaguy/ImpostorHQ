@@ -2,6 +2,10 @@
 var connection = null;
 var y = null;
 var x = null;
+var chart = new SmoothieChart({ tooltip: true, timestampFormatter: SmoothieChart.timeFormatter }),
+	canvas = document.getElementById('smoothie-chart'),
+	series = new TimeSeries();
+chart.addTimeSeries(series, { lineWidth: 2, strokeStyle: '#00ff00' });
 
 function connect() {
 	var serverUrl;
@@ -57,6 +61,7 @@ function connect() {
 				document.getElementById("text").value = "";
 				document.getElementById("text").disabled = false;
 				document.getElementById("send").disabled = false;
+				chart.addTimeSeries(series, { lineWidth: 2, strokeStyle: '#00ff00' });
 				console.log("AUTHED");
 			break;
 
@@ -78,6 +83,8 @@ function connect() {
 			case MessageFlags.HeartbeatMessage:
 				var tokens = msg.Text.split("-");
 				document.getElementById("Lobbies").innerHTML = tokens[0];
+				series.append(new Date().getTime(), tokens[0]);
+				chart.streamTo(canvas, 5000);
 				document.getElementById("Players").innerHTML = tokens[1];
 				console.log("HEARTBEAT")
 			break;
