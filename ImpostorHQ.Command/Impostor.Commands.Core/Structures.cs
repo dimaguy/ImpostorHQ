@@ -42,6 +42,10 @@ namespace Impostor.Commands.Core
             /// The source of the message.
             /// </summary>
             public string Name { get; set; }
+            /// <summary>
+            /// Additional data for some messages (e.g the heartbeat)
+            /// </summary>
+            public float[] Flags { get; set; }
         }
 
         public static class DashboardCommands

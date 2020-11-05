@@ -90,7 +90,7 @@ namespace Impostor.Commands.Core.DashBoard
         public void Shutdown()
         {
             this.Running = false;
-            Push("Impostor server shutting down...",Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.DoKickOrDisconnect);
+            Push("Impostor server shutting down...",Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.DoKickOrDisconnect,null);
             Server.Dispose();
             ApiKeys.Clear();
         }
@@ -200,7 +200,10 @@ namespace Impostor.Commands.Core.DashBoard
         /// This is used to send messages to all connected dashboards.
         /// </summary>
         /// <param name="message">The message to send.</param>
-        public void Push(string message,string name,string type)
+        /// <param name="name">The name of the system.</param>
+        /// <param name="type">The type of the message. You must use Structures.MessageFlag to get it.</param>
+        /// <param name="flags">Additional flags, for messages that require them.</param>
+        public void Push(string message,string name,string type,float[] flags = null)
         {
             lock(GlobalMessage) lock (Clients)
             {
@@ -209,6 +212,7 @@ namespace Impostor.Commands.Core.DashBoard
                 GlobalMessage.Type = type;
                 GlobalMessage.Date = GetTime();
                 GlobalMessage.Name = name;
+                GlobalMessage.Flags = flags;
                 var data = JsonSerializer.Serialize<Structures.BaseMessage>(GlobalMessage);
                 Task[] sendTasks = new Task[Clients.Count];
                 var index = 0;
@@ -246,7 +250,7 @@ namespace Impostor.Commands.Core.DashBoard
             catch(Exception ex)
             {
                 //we'd like all the dashboards to know that they have been betrayed.
-                Push($"{ex.Message}",Structures.ServerSources.DebugSystemCritical,Structures.MessageFlag.ConsoleLogMessage);
+                Push($"{ex.Message}",Structures.ServerSources.DebugSystemCritical,Structures.MessageFlag.ConsoleLogMessage,null);
                 Logger.LogError(ex.Message);
             }
         }
@@ -272,7 +276,9 @@ namespace Impostor.Commands.Core.DashBoard
             }
             catch (Exception ex)
             {
-                Push(ex.Message,Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage);
+                Push(ex.Message, Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage,
+                    null);
+                ;
                 Logger.LogError(ex.Message);
             }
         }
@@ -295,14 +301,14 @@ namespace Impostor.Commands.Core.DashBoard
                 {
                     if (Clients.Count > 0)
                     {
-                        Push(CompileNumbers(),string.Empty,Structures.MessageFlag.HeartbeatMessage);
+                        Push(String.Empty, string.Empty,Structures.MessageFlag.HeartbeatMessage,CompileNumbers());
                     }
                 }
                 Thread.Sleep(5000);
             }
         }
 
-        public string CompileNumbers()
+        public float[] CompileNumbers()
         {
             ulong players = 0, games = 0; //never going to need so much...
             foreach (var game in GameManager.Games)
@@ -314,8 +320,9 @@ namespace Impostor.Commands.Core.DashBoard
                 }
             }
 
-            TimeSpan t = StartTime - DateTime.UtcNow;
-            return games + "-" + players + "-" + t.TotalMinutes;
+            TimeSpan t = DateTime.UtcNow-StartTime;
+            //Math.Round(t.TotalMinutes, 2) - we don't really need decimal places...
+            return new float[] {games, players, (uint) t.TotalMinutes};
         }
 
         public delegate void DelMessageReceived(Structures.BaseMessage message,IWebSocketConnection connection);

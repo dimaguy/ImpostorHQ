@@ -157,7 +157,7 @@ namespace Impostor.Commands.Core
 
         private void PlayerBanned(string username, string IP)
         {
-            ApiServer.Push($"Player {username} / {IP} was banned permanently.","reportsys",Structures.MessageFlag.ConsoleLogMessage);
+            ApiServer.Push($"Player {username} / {IP} was banned permanently.","reportsys",Structures.MessageFlag.ConsoleLogMessage,null);
         }
 
         private void GameEventListener_OnPlayerCommandReceived(string command, string data, IPlayerChatEvent source)
@@ -176,7 +176,7 @@ namespace Impostor.Commands.Core
                     break;
                 }
             }
-            ApiServer.Push($"Received command {{from {source.PlayerControl.PlayerInfo.PlayerName}}} : {command} [{data}]","cmdsys",Structures.MessageFlag.ConsoleLogMessage);
+            ApiServer.Push($"Received command {{from {source.PlayerControl.PlayerInfo.PlayerName}}} : {command} [{data}]","cmdsys",Structures.MessageFlag.ConsoleLogMessage,null);
         }
 
         
