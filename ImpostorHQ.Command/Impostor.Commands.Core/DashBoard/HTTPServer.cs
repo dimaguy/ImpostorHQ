@@ -78,20 +78,20 @@ namespace Impostor.Commands.Core.DashBoard
                 startPos = request.LastIndexOf("/",StringComparison.CurrentCultureIgnoreCase) + 1;
                 var file = request.Substring(startPos);
                 var directory = request.Substring(request.IndexOf("/",StringComparison.InvariantCultureIgnoreCase), request.LastIndexOf("/",StringComparison.InvariantCultureIgnoreCase) - 3);
-                
-                //COMPARISION : If the root directory is requested, move on to the next comparision. If not, send the error.
-                if (directory.Equals("/")) //   Only root ('/') is allowed.
+                //COMPARISION : If the path is clean, move on to the next comparision. If not, send the error.
+                if (!directory.Contains("..")) //   Only root ('/') is allowed.
                 {
-                    var cleanedPath = string.Empty; //no filesystem scan exploits now :)
+                    var cleanedPath = GetLocalPath(file, directory);
+
                     //COMPARISION : If file exists, move on to the next comparision. If not, send the error.
-                    if (File.Exists((cleanedPath = GetLocalPath(file))))
+                    if (File.Exists(cleanedPath))
                     {
                         var mimeType = ParseMime(file);
                         //COMPARISION : If the file type is supported, move on to the next comparision. If not, send the error.
                         if (mimeType != null)
                         {
                             //COMPARISION : Send client from memory or an unloaded file from the disk.
-                            if (cleanedPath.Equals("client.html") || cleanedPath.Equals("index.html"))
+                            if (cleanedPath.Contains("client.html"))
                             {
                                 WriteHeader(version,"text/html",Document.Length," 200 OK",ref ns);
                                 ns.Write(Document,0,Document.Length);
@@ -159,6 +159,8 @@ namespace Impostor.Commands.Core.DashBoard
                     return "image/png";
                 case ".gif":
                     return "image/gif";
+                case ".ttf":
+                    return "application/x-font-ttf";
                 default:
                     //unsupported type...
                     return null;
@@ -170,10 +172,14 @@ namespace Impostor.Commands.Core.DashBoard
         /// </summary>
         /// <param name="target">The requested path.</param>
         /// <returns>The path is sanitized and localized to the required data folder.</returns>
-        public string GetLocalPath(string target)
+        public string GetLocalPath(string target,string dir)
         {
+            var rv = "";
             target = target.Replace("..",""); //don't you dare probe my filesystem!!
-            return Path.Combine("dashboard", target);
+            dir = dir.Replace("..", "");
+            rv = Path.Combine("dashboard", dir.Replace("/",""));
+            rv = Path.Combine(rv, target);
+            return rv;
         }
 
         /// <summary>

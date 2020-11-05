@@ -33,6 +33,8 @@ namespace Impostor.Commands.Core.DashBoard
         //  The global game manager. Here, we use it to get statistics.
         private IGameManager GameManager { get; set; }
         public Thread HeartbeatThread { get; private set; }
+        //  This is used to calculate the uptime.
+        public DateTime StartTime { get; private set; }
         /// <summary>
         /// This will host an API server, that can be accessed with the given API keys.
         /// </summary>
@@ -42,6 +44,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="logger">The global logger.</param>
         public WebApiServer(ushort port, string listenInterface,string[] keys,ILogger<Class> logger, IGameManager manager)
         {
+            this.StartTime = DateTime.UtcNow;
             this.Running = true;
             this.Commands = new Dictionary<string, string>();
             Options = new ParallelOptions();
@@ -311,7 +314,8 @@ namespace Impostor.Commands.Core.DashBoard
                 }
             }
 
-            return games + "-" + players;
+            TimeSpan t = StartTime - DateTime.UtcNow;
+            return games + "-" + players + "-" + t.TotalMinutes;
         }
 
         public delegate void DelMessageReceived(Structures.BaseMessage message,IWebSocketConnection connection);
