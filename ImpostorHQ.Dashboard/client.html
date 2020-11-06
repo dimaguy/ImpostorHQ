@@ -56,8 +56,11 @@
                 src: url('font/AlfaSlabOne-Regular.ttf') format('truetype');
             }
 		</style>
-		<script src="js/smoothie.js"></script>
-		<script src="js/main.js" defer></script>
+		<script type="text/javascript" src="js/moment.js"></script>
+		<script type="text/javascript" src="js/chart.js"></script>
+		<script type="text/javascript" src="js/chart.streaming.js"></script>
+		<script type="text/javascript" src="js/smoothie.js"></script>
+		<script type="text/javascript" src="js/main.js" defer></script>
 	</head>
 	<body>
 		<div class="header">
@@ -72,7 +75,8 @@
 				</div>
 			</div>
 		</div>
-		<div style="height: 100%; width: 100%; display: grid; grid-template-rows:auto auto; grid-template-columns:auto auto;">
+		<p></p>
+		<div style="height: 100%; width: 100%; display: grid; grid-template-rows:auto auto; grid-template-columns:50% auto;">
 			<div>
 					<!--same thing here
 					<td width="120px" align="top" border="1" height="100%">
@@ -83,7 +87,7 @@
 				<textarea style="color:lime; height:98%; width:92%; resize: none;" name="Console" id="chatbox" placeholder="" readonly></textarea>
 			</div>
 			<div>
-				<table style="border: 1px solid white;">
+				<table style="border: 1px solid white; width:150px">
 					<tr>
 						<td>
 							Lobbies
@@ -96,17 +100,23 @@
 						</td>
 						<td id="Players"></td>
 					</tr>
+					<tr>
+						<td>
+							Uptime
+						</td>
+						<td id="Uptime"></td>
+					</tr>
 				</table>
 				<div>
-					<canvas id="smoothie-chart" width="500" height="100"></canvas>
+					<div class="chart-container" style="/*position: relative; height:20vh; width:70vw*/">
+						<canvas id="playerChart"></canvas>
+					</div>
+					<canvas id="cpu-chart" width="500" height="100"></canvas>
 				</div>
 			</div>
 			<div class="container">	
 				<input id="text" type="text" name="text" style="display:inline; width:auto; min-width: 80%;" maxlength="256" placeholder="Command" autocomplete="off" onkeyup="handleKey(event)" disabled>
 				<input type="button" id="send" name="send" value="Send" onclick="send()" style="display: inline;" disabled>			
-			</div>
-			<div>
-
 			</div>
 	  </div>
 	</body>
