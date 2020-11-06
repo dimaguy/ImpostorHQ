@@ -2,10 +2,13 @@
 var connection = null;
 var y = null;
 var x = null;
-var chart = new SmoothieChart({ tooltip: true, timestampFormatter: SmoothieChart.timeFormatter }),
-	canvas = document.getElementById('smoothie-chart'),
-	series = new TimeSeries();
-chart.addTimeSeries(series, { lineWidth: 2, strokeStyle: '#00ff00' });
+var chart = new SmoothieChart({ tooltip: true, timestampFormatter: SmoothieChart.timeFormatter, maxValue: 100, minValue: 0 }),
+	canvas = document.getElementById('cpu-chart'),
+	cpu = new TimeSeries();
+var playerChart = document.getElementById('playerChart');
+var ctx = playerChart.getContext('2d');
+
+chart.addTimeSeries(players, { lineWidth: 2, strokeStyle: '#00ff00' });
 
 function connect() {
 	var serverUrl;
@@ -51,7 +54,7 @@ function connect() {
 		var time = new Date(msg.Date);
 		var timeStr = time.toLocaleTimeString();
 
-		switch(msg.Type) {
+		switch (msg.Type) {
 			case MessageFlags.ConsoleLogMessage:
 				text = "(" + timeStr + ") [" + msg.Name + "] : " + msg.Text + "\n";
 				break;
@@ -63,14 +66,14 @@ function connect() {
 				document.getElementById("send").disabled = false;
 				chart.addTimeSeries(series, { lineWidth: 2, strokeStyle: '#00ff00' });
 				console.log("AUTHED");
-			break;
+				break;
 
 			case MessageFlags.LoginApiRejected:
 				document.getElementById("status").style.color = "red";
 				document.getElementById("status").innerHTML = "Api Key Error!";
 				document.getElementById("text").disabled = true;
 				document.getElementById("send").disabled = true;
-			break;
+				break;
 
 			case MessageFlags.DoKickOrDisconnect:
 				document.getElementById("status").style.color = "red";
@@ -78,14 +81,16 @@ function connect() {
 				document.getElementById("text").value = "";
 				document.getElementById("text").disabled = true;
 				document.getElementById("send").disabled = true;
-			break;
+				break;
 
 			case MessageFlags.HeartbeatMessage:
 				var tokens = msg.Flags;
 				document.getElementById("Lobbies").innerHTML = tokens[0];
-				series.append(new Date().getTime(), tokens[0]);
-				chart.streamTo(canvas, 5000);
 				document.getElementById("Players").innerHTML = tokens[1];
+				playersOnline = tokens[1];
+				lobbies = tokens[0];
+				series.append(new Date().getTime(), tokens[2]);
+				chart.streamTo(canvas, 5000);
 				console.log("HEARTBEAT")
 			break;
 
@@ -120,7 +125,58 @@ function send() {
 	connection.send(JSON.stringify(msg));
 	document.getElementById("text").value = "";
 }
+function plot() {
+	var chart = new Chart(ctx, {
 
+		type: 'line',
+		data: {
+
+			datasets: [{
+				label: 'Players',
+				borderColor: 'rgb(255, 99, 132)',
+				backgroundColor: 'rgba(255, 99, 132, 0.5)',
+				lineTension: 0,
+				borderDash: [8, 4]
+
+			},
+			{
+				label: 'Lobbies',
+				borderColor: 'rgb(54, 162, 235)',
+				backgroundColor: 'rgba(54, 162, 235, 0.5)',
+				lineTension: 0,
+			}
+
+			]
+		},
+
+		options: {
+			responsive: true,
+			maintainAspectRatio: false,
+			scales: {
+				xAxes: [{
+					type: 'realtime',
+					realtime: {
+						delay: 5000,
+						duration: 60000 * 5,
+						onRefresh: function (chart) {
+							chart.data.datasets[0].data.push({
+								x: Date.now(),
+								y: playersOnline,
+
+							});
+							chart.data.datasets[1].data.push({
+								x: Date.now(),
+								y: lobbies,
+
+							});
+						}
+					}
+				}]
+			}
+		},
+
+	});
+}
 function handleKey(evt) {
 	if (evt.keyCode === 13 || evt.keyCode === 14) {
 		if (!document.getElementById("send").disabled) {
