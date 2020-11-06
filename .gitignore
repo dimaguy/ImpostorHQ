@@ -338,3 +338,5 @@ ASALocalRun/
 
 # BeatPulse healthcheck temp database
 healthchecksdb
+/ImpostorHQ.Command/Monitors.Tests
+/Server.Test

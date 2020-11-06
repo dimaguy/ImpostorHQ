@@ -128,7 +128,7 @@ namespace Impostor.Commands.Core
         private void InitializeInterfaces()
         {
             this.ChatInterface = new GameCommandChatInterface(MessageWriterProvider, Logger);
-            GameEventListener = new GamePluginInterface(ChatInterface);
+            this.GameEventListener = new GamePluginInterface(ChatInterface);
             //register commands : -->
             GameEventListener.RegisterCommand(GamePluginInterface.CommandPrefixes.TestCommand);
             GameEventListener.RegisterCommand(GamePluginInterface.CommandPrefixes.ReportCommand);

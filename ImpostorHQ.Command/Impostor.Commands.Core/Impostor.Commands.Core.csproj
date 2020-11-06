@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <PackageReference Include="Impostor.Api" Version="1.2.2-ci.91" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="5.0.0-rc.2.20475.5" />
   </ItemGroup>
 
 </Project>

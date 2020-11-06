@@ -35,6 +35,7 @@ namespace Impostor.Commands.Core.DashBoard
         public Thread HeartbeatThread { get; private set; }
         //  This is used to calculate the uptime.
         public DateTime StartTime { get; private set; }
+        public PerformanceMonitors Counters { get; private set; }
         /// <summary>
         /// This will host an API server, that can be accessed with the given API keys.
         /// </summary>
@@ -45,6 +46,7 @@ namespace Impostor.Commands.Core.DashBoard
         public WebApiServer(ushort port, string listenInterface,string[] keys,ILogger<Class> logger, IGameManager manager)
         {
             this.StartTime = DateTime.UtcNow;
+            this.Counters = new PerformanceMonitors();
             this.Running = true;
             this.Commands = new Dictionary<string, string>();
             Options = new ParallelOptions();
@@ -90,6 +92,7 @@ namespace Impostor.Commands.Core.DashBoard
         public void Shutdown()
         {
             this.Running = false;
+            Counters.Shutdown();
             Push("Impostor server shutting down...",Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.DoKickOrDisconnect,null);
             Server.Dispose();
             ApiKeys.Clear();
@@ -322,7 +325,13 @@ namespace Impostor.Commands.Core.DashBoard
 
             TimeSpan t = DateTime.UtcNow-StartTime;
             //Math.Round(t.TotalMinutes, 2) - we don't really need decimal places...
-            return new float[] {games, players, (uint) t.TotalMinutes};
+            return new float[]
+            {
+                games,                 
+                players,                
+                (uint) t.TotalMinutes, 
+                Counters.CpuUsage
+            };
         }
 
         public delegate void DelMessageReceived(Structures.BaseMessage message,IWebSocketConnection connection);
