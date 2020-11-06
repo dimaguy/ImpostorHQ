@@ -2,13 +2,22 @@
 var connection = null;
 var y = null;
 var x = null;
-var chart = new SmoothieChart({ tooltip: true, timestampFormatter: SmoothieChart.timeFormatter, maxValue: 100, minValue: 0 }),
-	canvas = document.getElementById('cpu-chart'),
-	cpu = new TimeSeries();
+var playersOnline = 0;
+var lobbies = 0;
+/*
+var chart = new SmoothieChart({
+	tooltip: true,
+	timestampFormatter: SmoothieChart.timeFormatter,
+	maxValue: 100,
+	minValue: 0
+});
+var canvas = document.getElementById('cpu-chart');
+var cpu = new TimeSeries();
+*/
 var playerChart = document.getElementById('playerChart');
 var ctx = playerChart.getContext('2d');
 
-chart.addTimeSeries(players, { lineWidth: 2, strokeStyle: '#00ff00' });
+//chart.addTimeSeries(playerChart, { lineWidth: 2, strokeStyle: '#00ff00' });
 
 function connect() {
 	var serverUrl;
@@ -64,7 +73,8 @@ function connect() {
 				document.getElementById("text").value = "";
 				document.getElementById("text").disabled = false;
 				document.getElementById("send").disabled = false;
-				chart.addTimeSeries(series, { lineWidth: 2, strokeStyle: '#00ff00' });
+				//chart.addTimeSeries(series, { lineWidth: 2, strokeStyle: '#00ff00' });
+                plot();
 				console.log("AUTHED");
 				break;
 
@@ -90,8 +100,8 @@ function connect() {
 				document.getElementById("Uptime").innerHTML = tokens[2];
 				playersOnline = tokens[1];
 				lobbies = tokens[0];
-				series.append(new Date().getTime(), tokens[3]);
-				chart.streamTo(canvas, 5000);
+				//series.append(new Date().getTime(), tokens[3]);
+				//chart.streamTo(canvas, 5000);
 				console.log("HEARTBEAT")
 			break;
 
@@ -128,8 +138,7 @@ function send() {
 }
 function plot() {
 	var chart = new Chart(ctx, {
-
-		type: 'line',
+        type: 'line',
 		data: {
 
 			datasets: [{

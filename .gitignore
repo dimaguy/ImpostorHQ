@@ -335,8 +335,11 @@ ASALocalRun/
 
 # Local History for Visual Studio
 .localhistory/
-
 # BeatPulse healthcheck temp database
 healthchecksdb
 /ImpostorHQ.Command/Monitors.Tests
 /Server.Test
+
+*.bat
+Server.Test
+Server.Test/
