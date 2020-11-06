@@ -87,9 +87,10 @@ function connect() {
 				var tokens = msg.Flags;
 				document.getElementById("Lobbies").innerHTML = tokens[0];
 				document.getElementById("Players").innerHTML = tokens[1];
+				document.getElementById("Uptime").innerHTML = tokens[2];
 				playersOnline = tokens[1];
 				lobbies = tokens[0];
-				series.append(new Date().getTime(), tokens[2]);
+				series.append(new Date().getTime(), tokens[3]);
 				chart.streamTo(canvas, 5000);
 				console.log("HEARTBEAT")
 			break;
