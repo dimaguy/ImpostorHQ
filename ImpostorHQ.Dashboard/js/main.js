@@ -81,7 +81,7 @@ function connect() {
 			break;
 
 			case MessageFlags.HeartbeatMessage:
-				var tokens = msg.Text.split("-");
+				var tokens = msg.Flags;
 				document.getElementById("Lobbies").innerHTML = tokens[0];
 				series.append(new Date().getTime(), tokens[0]);
 				chart.streamTo(canvas, 5000);
