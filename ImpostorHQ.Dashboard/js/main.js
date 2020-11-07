@@ -92,6 +92,9 @@ function connect() {
 				document.getElementById("text").value = "";
 				document.getElementById("text").disabled = true;
 				document.getElementById("send").disabled = true;
+				_playerchart.destroy();
+				_cpuchart.destroy();
+				_ramchart.destroy();
 				break;
 
 			case MessageFlags.HeartbeatMessage:
