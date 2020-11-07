@@ -12,7 +12,6 @@
 		<link rel="apple-touch-icon" sizes="144x144" href="ico/apple-icon-144x144.png">
 		<link rel="apple-touch-icon" sizes="152x152" href="ico/apple-icon-152x152.png">
 		<link rel="apple-touch-icon" sizes="180x180" href="ico/apple-icon-180x180.png">
-		<link rel="icon" type="image/png" sizes="192x192" href="ico/android-icon-192x192.png">
 		<link rel="icon" type="image/png" sizes="32x32" href="ico/favicon-32x32.png">
 		<link rel="icon" type="image/png" sizes="96x96" href="ico/favicon-96x96.png">
 		<link rel="icon" type="image/png" sizes="16x16" href="ico/favicon-16x16.png">
@@ -59,7 +58,6 @@
 		<script type="text/javascript" src="js/moment.js"></script>
 		<script type="text/javascript" src="js/chart.js"></script>
 		<script type="text/javascript" src="js/chart.streaming.js"></script>
-		<script type="text/javascript" src="js/smoothie.js"></script>
 		<script type="text/javascript" src="js/main.js" defer></script>
 	</head>
 	<body>
@@ -68,7 +66,7 @@
 				<img src="ico/apple-touch-icon-60x60.png" style="vertical-align:middle">
 				<h1 style="display: inline; vertical-align: middle; color:#ff0000; font-family: headerFont;">Impostor<b style="color: #41BB3F;">HQ</b></h1>
 				<input id="apikey" name="apikey" type="password" maxlength="50" placeholder="Your Api Key" style="display: inline; vertical-align:middle;">
-				<input type="button" name="login" value="Log in" onclick="connect()" style="display: inline; vertical-align:middle;">
+				<input type="button" name="login" value="Log in" onclick="connect()" onkeyup="handleSend(event)" style="display: inline; vertical-align:middle;">
 				<p id="status" style="display: inline;"></p>
 				<div class="header-right">
 					<a class="active" href="">Home</a>
@@ -108,14 +106,21 @@
 					</tr>
 				</table>
 				<div>
-					<div class="chart-container" style="/*position: relative; height:20vh; width:70vw*/">
+					<div class="chart-container">
 						<canvas id="playerChart"></canvas>
 					</div>
-					<canvas id="cpu-chart" width="500" height="100"></canvas>
+					
+					<div class="chart-container">
+						<canvas id="cpuChart"></canvas>
+					</div>
+					
+					<div class="chart-container">
+						<canvas id="ramChart"></canvas>
+					</div>
 				</div>
 			</div>
 			<div class="container">	
-				<input id="text" type="text" name="text" style="display:inline; width:auto; min-width: 80%;" maxlength="256" placeholder="Command" autocomplete="off" onkeyup="handleKey(event)" disabled>
+				<input id="text" type="text" name="text" style="display:inline; width:auto; min-width: 80%;" maxlength="256" placeholder="Command" autocomplete="off" onkeyup="handleSend(event)" disabled>
 				<input type="button" id="send" name="send" value="Send" onclick="send()" style="display: inline;" disabled>			
 			</div>
 	  </div>

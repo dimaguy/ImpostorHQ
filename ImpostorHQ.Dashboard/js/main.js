@@ -1,23 +1,19 @@
 "use strict";
 var connection = null;
-var y = null;
-var x = null;
+var firstLogin = true
 var playersOnline = 0;
 var lobbies = 0;
-/*
-var chart = new SmoothieChart({
-	tooltip: true,
-	timestampFormatter: SmoothieChart.timeFormatter,
-	maxValue: 100,
-	minValue: 0
-});
-var canvas = document.getElementById('cpu-chart');
-var cpu = new TimeSeries();
-*/
-var playerChart = document.getElementById('playerChart');
-var ctx = playerChart.getContext('2d');
+var cpuUsage = 0;
+var ramUsage = 0;
 
-//chart.addTimeSeries(playerChart, { lineWidth: 2, strokeStyle: '#00ff00' });
+var playerChart = document.getElementById('playerChart');
+var ctxPlayers = playerChart.getContext('2d');
+
+var cpuChart = document.getElementById('cpuChart');
+var ctxCpu = cpuChart.getContext('2d');
+
+var ramChart = document.getElementById('ramChart');
+var ctxRam = ramChart.getContext('2d');
 
 function connect() {
 	var serverUrl;
@@ -26,13 +22,13 @@ function connect() {
 	if (document.location.protocol === "https:") {
 		scheme += "s";
 	}
-	
+
 	serverUrl = scheme + "://" + document.location.hostname + ":22023";
 
 	connection = new WebSocket(serverUrl);
 	console.log("***CREATED WEBSOCKET");
-  
-	connection.onopen = function(evt) {
+
+	connection.onopen = function (evt) {
 		console.log("***ONOPEN");
 		document.getElementById("status").innerHTML = "";
 		var auth = {
@@ -44,7 +40,7 @@ function connect() {
 	};
 	console.log("***CREATED ONOPEN");
 
-	connection.onerror = function(event) {
+	connection.onerror = function (event) {
 		console.error("WebSocket error observed: ", event);
 		document.getElementById("status").innerHTML = "WebSocket Error: " + event.type;
 		document.getElementById("text").value = "";
@@ -53,7 +49,7 @@ function connect() {
 	};
 	console.log("***CREATED ONERROR");
 
-	connection.onmessage = function(evt) {
+	connection.onmessage = function (evt) {
 		console.log("***ONMESSAGE");
 		var box = document.getElementById("chatbox");
 		var text = "";
@@ -63,9 +59,8 @@ function connect() {
 		var time = new Date(msg.Date);
 		var timeStr = time.toLocaleTimeString();
 
-		switch (msg.Type)
-        {
-            case MessageFlags.ConsoleLogMessage:
+		switch (msg.Type) {
+			case MessageFlags.ConsoleLogMessage:
 				text = "(" + timeStr + ") [" + msg.Name + "] : " + msg.Text + "\n";
 				break;
 			case MessageFlags.LoginApiAccepted:
@@ -74,8 +69,13 @@ function connect() {
 				document.getElementById("text").value = "";
 				document.getElementById("text").disabled = false;
 				document.getElementById("send").disabled = false;
-				//chart.addTimeSeries(series, { lineWidth: 2, strokeStyle: '#00ff00' });
-                plot();
+				if (!firstLogin) {
+					_playerchart.destroy();
+					_cpuchart.destroy();
+					_ramchart.destroy();
+				};
+				plot();
+				firstLogin = false
 				console.log("AUTHED");
 				break;
 
@@ -92,6 +92,9 @@ function connect() {
 				document.getElementById("text").value = "";
 				document.getElementById("text").disabled = true;
 				document.getElementById("send").disabled = true;
+				_playerchart.destroy();
+				_cpuchart.destroy();
+				_ramchart.destroy();
 				break;
 
 			case MessageFlags.HeartbeatMessage:
@@ -101,10 +104,10 @@ function connect() {
 				document.getElementById("Uptime").innerHTML = tokens[2];
 				playersOnline = tokens[1];
 				lobbies = tokens[0];
-				//series.append(new Date().getTime(), tokens[3]);
-				//chart.streamTo(canvas, 5000);
-				console.log("HEARTBEAT")
-			break;
+				cpuUsage = tokens[3];
+				ramUsage = tokens[4];
+				console.log("HEARTBEAT");
+				break;
 
 			//	commented out for now, but could be used to transmit game room list
 			//      case "userlist":
@@ -119,8 +122,8 @@ function connect() {
 		}
 
 		if (text.length) {
-			  box.value += text; 
-			  box.scrollTop = box.scrollHeight; 
+			box.value += text;
+			box.scrollTop = box.scrollHeight;
 		}
 	};
 	console.log("***CREATED ONMESSAGE");
@@ -138,8 +141,8 @@ function send() {
 	document.getElementById("text").value = "";
 }
 function plot() {
-	var chart = new Chart(ctx, {
-        type: 'line',
+	var _playerchart = new Chart(ctxPlayers, {
+		type: 'line',
 		data: {
 
 			datasets: [{
@@ -164,6 +167,12 @@ function plot() {
 			responsive: true,
 			maintainAspectRatio: false,
 			scales: {
+				yAxes: [{
+					ticks: {
+						beginAtZero: true,
+						precision: 0
+					}
+				}],
 				xAxes: [{
 					type: 'realtime',
 					realtime: {
@@ -172,13 +181,97 @@ function plot() {
 						onRefresh: function (chart) {
 							chart.data.datasets[0].data.push({
 								x: Date.now(),
-								y: playersOnline,
-
+								y: playersOnline
 							});
 							chart.data.datasets[1].data.push({
 								x: Date.now(),
-								y: lobbies,
+								y: lobbies
+							});
+						}
+					}
+				}]
+			}
+		},
 
+	});
+	var _cpuchart = new Chart(ctxCpu, {
+		type: 'line',
+		data: {
+
+			datasets: [{
+				label: 'CPU Usage (%)',
+				borderColor: 'rgb(255, 0, 132)',
+				backgroundColor: 'rgba(255, 99, 132, 0.5)',
+				lineTension: 0,
+				borderDash: [8, 4]
+
+			}
+
+			]
+		},
+
+		options: {
+			responsive: true,
+			maintainAspectRatio: false,
+			scales: {
+				yAxes: [{
+					ticks: {
+						beginAtZero: true,
+						precision: 0
+					}
+				}],
+				xAxes: [{
+					type: 'realtime',
+					realtime: {
+						delay: 5000,
+						duration: 60000,
+						onRefresh: function (chart) {
+							chart.data.datasets[0].data.push({
+								x: Date.now(),
+								y: cpuUsage
+							});
+						}
+					}
+				}]
+			}
+		},
+
+	});
+	var _ramchart = new Chart(ctxRam, {
+		type: 'line',
+		data: {
+
+			datasets: [{
+				label: 'Memory Usage (MB)',
+				borderColor: 'rgb(255, 0, 255)',
+				backgroundColor: 'rgba(255, 99, 132, 0.5)',
+				lineTension: 0,
+				borderDash: [8, 4]
+
+			}
+
+			]
+		},
+
+		options: {
+			responsive: true,
+			maintainAspectRatio: false,
+			scales: {
+				yAxes: [{
+					ticks: {
+						beginAtZero: true,
+						precision: 0
+					}
+				}],
+				xAxes: [{
+					type: 'realtime',
+					realtime: {
+						delay: 5000,
+						duration: 60000,
+						onRefresh: function (chart) {
+							chart.data.datasets[0].data.push({
+								x: Date.now(),
+								y: ramUsage
 							});
 						}
 					}
@@ -188,21 +281,27 @@ function plot() {
 
 	});
 }
-function handleKey(evt) {
+
+function handleSend(evt) {
 	if (evt.keyCode === 13 || evt.keyCode === 14) {
 		if (!document.getElementById("send").disabled) {
-		send();
+			send();
 		}
 	}
 }
-const MessageFlags = 
+function HandleLogin(evt) {
+	if (evt.keyCode === 13 || evt.keyCode === 14) {
+		connect();
+	}
+}
+const MessageFlags =
 {
-	LoginApiRequest : "0",      // A request to log in, with a given API key.
-    LoginApiAccepted : "1",     // The API Key is correct, so the login is successful.
-    LoginApiRejected : "2",     // The API key is incorrect, so the login is rejected.
-    ConsoleLogMessage : "3",    // Server Message
-    ConsoleCommand : "4",       // A command sent from the dashboard to the API.
-    HeartbeatMessage : "5",     // Quick sanity check with some statistics
-    GameListMessage : "6",      // Not implemented yet.
-    DoKickOrDisconnect : "7"    // A message when a client is kicked or the server shuts down.
+	LoginApiRequest: "0",      // A request to log in, with a given API key.
+	LoginApiAccepted: "1",     // The API Key is correct, so the login is successful.
+	LoginApiRejected: "2",     // The API key is incorrect, so the login is rejected.
+	ConsoleLogMessage: "3",    // Server Message
+	ConsoleCommand: "4",       // A command sent from the dashboard to the API.
+	HeartbeatMessage: "5",     // Quick sanity check with some statistics
+	GameListMessage: "6",      // Not implemented yet.
+	DoKickOrDisconnect: "7"    // A message when a client is kicked or the server shuts down.
 }
