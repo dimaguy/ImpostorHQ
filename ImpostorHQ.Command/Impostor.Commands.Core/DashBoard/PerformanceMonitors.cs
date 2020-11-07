@@ -30,7 +30,7 @@ namespace Impostor.Commands.Core.DashBoard
             {
                 _startTime = DateTime.Now;
                 _startUsage = ProcessCtx.TotalProcessorTime;
-                Thread.Sleep(1000); //should be good enough for the future.
+                Thread.Sleep(500); //should be good enough for the future.
                 _endTime = DateTime.Now;
                 _endUsage = ProcessCtx.TotalProcessorTime;
                 this.CpuUsage = (int)((((_endUsage - _startUsage).TotalMilliseconds) / (Environment.ProcessorCount * ((_endTime - _startTime).TotalMilliseconds))) * 100);
