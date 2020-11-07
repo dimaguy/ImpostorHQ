@@ -307,7 +307,7 @@ namespace Impostor.Commands.Core.DashBoard
                         Push(String.Empty, string.Empty,Structures.MessageFlag.HeartbeatMessage,CompileNumbers());
                     }
                 }
-                Thread.Sleep(5000);
+                Thread.Sleep(1000);
             }
         }
 

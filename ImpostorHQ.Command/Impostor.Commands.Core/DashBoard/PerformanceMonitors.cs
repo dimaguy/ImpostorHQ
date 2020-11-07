@@ -11,7 +11,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// We update this value every 1 second. 
         /// </summary>
         public int CpuUsage{ get; private set; }
-        public int MemoryUsage => ((int) ProcessCtx.WorkingSet64 / (1024 * 1024));
+        public int MemoryUsage { get; set; }
         public bool Running { get; private set; }
         private Process ProcessCtx { get; set; }
         public PerformanceMonitors()
@@ -34,6 +34,7 @@ namespace Impostor.Commands.Core.DashBoard
                 _endTime = DateTime.Now;
                 _endUsage = ProcessCtx.TotalProcessorTime;
                 this.CpuUsage = (int)((((_endUsage - _startUsage).TotalMilliseconds) / (Environment.ProcessorCount * ((_endTime - _startTime).TotalMilliseconds))) * 100);
+                this.MemoryUsage = (int) ((ProcessCtx.PrivateMemorySize64 / 1024f) / 1024f);
             }
         }
         public void Shutdown()
