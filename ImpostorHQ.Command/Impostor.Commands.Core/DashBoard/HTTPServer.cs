@@ -185,7 +185,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <returns>The path is sanitized and localized to the required data folder.</returns>
         public string GetLocalPath(string target,string dir)
         {
-            var rv = "";
+            string rv;
             target = target.Replace("..",""); //don't you dare probe my filesystem!!
             dir = dir.Replace("..", "");
             rv = Path.Combine("dashboard", dir.Replace("/",""));

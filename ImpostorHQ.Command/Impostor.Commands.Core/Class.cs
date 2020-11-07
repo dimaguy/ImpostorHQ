@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using Fleck;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Impostor.Api.Net.Messages;
 using Impostor.Api.Events.Player;
+using Impostor.Api.Net;
+using Impostor.Api.Net.Manager;
 using Microsoft.Extensions.Logging;
 using Impostor.Commands.Core.DashBoard;
 
@@ -125,7 +129,7 @@ namespace Impostor.Commands.Core
             InitializeServers();
             
 
-            HighCourt = new JusticeSystem(BanFolder,10,Logger,ChatInterface);
+            HighCourt = new JusticeSystem(BanFolder,10,Logger,ChatInterface,this);
             HighCourt.OnPlayerBanned += PlayerBanned;
         }
 
@@ -158,6 +162,9 @@ namespace Impostor.Commands.Core
             ApiServer.RegisterCommand(Structures.DashboardCommands.HelpMessage, "=> will display the help message.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.ServerWideBroadcast," <your message here> => will send a message to all lobbies.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.StatusMessage,"=> will show you some general statistics about the server.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.BanIpAddress, " <ip address> => will permanently ban the IP address. The players must be connected.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.BanIpAddressBlind," <ip address> => just like the above, but the player does not need to be connected. Warning: he will not be kicked if he is connected to a game. Use the above command if that is your intention.");
+
         }
 
         private void PlayerBanned(string username, string IP)
@@ -299,6 +306,59 @@ namespace Impostor.Commands.Core
                         }
                         break;
                     }
+                    case Structures.DashboardCommands.BanIpAddress:
+                    {
+                        IPAddress Address;
+                        message.Text = message.Text.Trim().Replace(" ", "");
+                        if (IPAddress.TryParse(message.Text,out Address))
+                        {
+                            handled = true;
+                            if (HighCourt.BanPlayer(Address, client.ConnectionInfo.ClientIpAddress))
+                            {
+                                ApiServer.Push($"The target [{Address} has been banned, permanently!","(SERVER/CRITICAL/WIDE)",Structures.MessageFlag.ConsoleLogMessage);
+                            }
+                            else
+                            {
+                                ApiServer.PushTo("Could not find player.",Structures.ServerSources.DebugSystem,Structures.MessageFlag.ConsoleLogMessage,client);
+                            }
+                        }
+                        else
+                        {
+                            handled = false;
+                        }
+                        break;
+                    }
+                    case Structures.DashboardCommands.BanIpAddressBlind:
+                    {
+                        IPAddress Address;
+                        message.Text = message.Text.Trim().Replace(" ", "");
+                        if (IPAddress.TryParse(message.Text, out Address))
+                        {
+                            var report = new Structures.Report
+                            {
+                                Messages = new List<string>
+                                {
+                                    "<adminsys / " + DateTime.Now.ToString() + ">"
+                                },
+                                Sources = new List<string>
+                                {
+                                    client.ConnectionInfo.ClientIpAddress
+                                },
+                                Target = Address.ToString(),
+                                TargetName = "<unknown>",
+                                MinutesRemaining = 0,
+                                TotalReports = 0
+                            };
+
+                            HighCourt.AddPermBan(report);
+                            handled = true;
+                        }
+                        else
+                        {
+                            handled = false;
+                        }
+                        break;
+                    }
                     default:
                         //a command that is not implemented or is invalid.
                         handled = false;
@@ -365,24 +425,32 @@ namespace Impostor.Commands.Core
         public string CompilePlayers()
         {
             var sb = new StringBuilder();
+            foreach (var player in GetPlayers())
+            {
+                sb.Append(player.Character.PlayerInfo.PlayerName);
+                sb.Append(',');
+                sb.Append(player.Client.Connection.EndPoint.Address.ToString());
+                sb.Append("\n");
+            }
+            
+            return sb.ToString();
+        }
+
+        public IEnumerable<IClientPlayer> GetPlayers()
+        {
             lock (GameManager.Games)
             {
-                Parallel.ForEach(GameManager.Games, Options, (game) =>
+                foreach (var game in GameManager.Games)
                 {
                     lock (game.Players)
                     {
                         foreach (var player in game.Players)
                         {
-                            sb.Append(player.Character.PlayerInfo.PlayerName);
-                            sb.Append(',');
-                            sb.Append(player.Client.Connection.EndPoint.Address.ToString());
-                            sb.Append("\n");
+                            yield return player;
                         }
                     }
-                });
+                }
             }
-
-            return sb.ToString();
         }
     }
 }

@@ -54,6 +54,8 @@ namespace Impostor.Commands.Core
             public const string HelpMessage = "/help";
             public const string StatusMessage = "/status";
             public const string BansMessage = "/bans";
+            public const string BanIpAddress = "/banip";
+            public const string BanIpAddressBlind = "/banipblind";
         }
 
         public class Exceptions

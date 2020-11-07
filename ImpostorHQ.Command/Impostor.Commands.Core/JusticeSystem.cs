@@ -2,9 +2,13 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Impostor.Api.Events.Player;
+using Impostor.Api.Games;
+using Impostor.Api.Games.Managers;
 using Microsoft.Extensions.Logging;
 
 namespace Impostor.Commands.Core
@@ -25,7 +29,7 @@ namespace Impostor.Commands.Core
         private string BanFolder { get; set; }
         //  a chat interface, used to interact with witnesses.
         private GameCommandChatInterface ChatInterface { get; set; }
-
+        private Class Manager { get; set; } 
         /// <summary>
         /// This will initialize a new instance of the JusticeSystem class. It is an example extension, which handles banning cheaters.
         /// </summary>
@@ -33,12 +37,13 @@ namespace Impostor.Commands.Core
         /// <param name="reportsPerBan">How many reports are required in order to issue an automatic ban.</param>
         /// <param name="logger">The global logger.</param>
         /// <param name="chatInterface">A chat interface, in order to interact with the players.</param>
-        public JusticeSystem(string banFolder, ushort reportsPerBan, ILogger logger, GameCommandChatInterface chatInterface)
+        public JusticeSystem(string banFolder, ushort reportsPerBan, ILogger logger, GameCommandChatInterface chatInterface,Impostor.Commands.Core.Class Master)
         {
             this.ReportsPerBan = reportsPerBan;
             this.BanFolder = banFolder;
             this.Logger = logger;
             this.ChatInterface = chatInterface;
+            this.Manager = Master;
             //we can now read our database (if we have one).
             LoadPermanentBans();
         }
@@ -171,7 +176,7 @@ namespace Impostor.Commands.Core
         /// This will add a permanent ban to both the memory list and the disk database.
         /// </summary>
         /// <param name="rep"></param>
-        private void AddPermBan(Structures.Report rep)
+        public void AddPermBan(Structures.Report rep)
         {
             lock (PermanentBans)
             {
@@ -197,6 +202,39 @@ namespace Impostor.Commands.Core
                     }
                 }
             }
+        }
+
+        public bool BanPlayer(IPAddress addr,string dashboard)
+        {
+            foreach (var possibleTarget in Manager.GetPlayers())
+            {
+                if (possibleTarget.Client.Connection.EndPoint.Address.Equals(addr))
+                {
+                    //we found our target!
+                    possibleTarget.BanAsync();
+                    var report = new Structures.Report
+                    {
+                        Messages = new List<string>
+                    {
+                        "<adminsys / " + DateTime.Now.ToString() + ">"
+                    },
+                        Sources = new List<string>
+                    {
+                        dashboard.ToString()
+                    },
+                        Target = possibleTarget.Client.Connection.EndPoint.Address.ToString(),
+                        TargetName = possibleTarget.Character.PlayerInfo.PlayerName,
+
+                        MinutesRemaining = 0,
+                        TotalReports = 0
+                    };
+
+                    AddPermBan(report);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public delegate void PlayerBanned(string name, string ipa);

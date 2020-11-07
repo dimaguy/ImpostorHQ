@@ -49,8 +49,10 @@ namespace Impostor.Commands.Core.DashBoard
             this.Counters = new PerformanceMonitors();
             this.Running = true;
             this.Commands = new Dictionary<string, string>();
-            Options = new ParallelOptions();
-            Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
+            Options = new ParallelOptions
+            {
+                MaxDegreeOfParallelism = Environment.ProcessorCount
+            };
             this.Logger = logger;
             this.GameManager = manager;
             //we initialize our objects.
