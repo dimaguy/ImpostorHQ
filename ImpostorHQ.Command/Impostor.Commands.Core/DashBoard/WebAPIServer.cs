@@ -330,7 +330,8 @@ namespace Impostor.Commands.Core.DashBoard
                 games,                 
                 players,                
                 (uint) t.TotalMinutes, 
-                Counters.CpuUsage
+                Counters.CpuUsage,
+                Counters.MemoryUsage
             };
         }
 

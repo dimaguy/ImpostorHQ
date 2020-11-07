@@ -11,6 +11,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// We update this value every 1 second. 
         /// </summary>
         public int CpuUsage{ get; private set; }
+        public int MemoryUsage => ((int) ProcessCtx.WorkingSet64 / (1024 * 1024));
         public bool Running { get; private set; }
         private Process ProcessCtx { get; set; }
         public PerformanceMonitors()
