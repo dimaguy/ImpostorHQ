@@ -63,8 +63,9 @@ function connect() {
 		var time = new Date(msg.Date);
 		var timeStr = time.toLocaleTimeString();
 
-		switch (msg.Type) {
-			case MessageFlags.ConsoleLogMessage:
+		switch (msg.Type)
+        {
+            case MessageFlags.ConsoleLogMessage:
 				text = "(" + timeStr + ") [" + msg.Name + "] : " + msg.Text + "\n";
 				break;
 			case MessageFlags.LoginApiAccepted:

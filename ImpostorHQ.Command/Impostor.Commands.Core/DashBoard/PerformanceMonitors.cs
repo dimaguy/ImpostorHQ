@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
-using System.Diagnostics;
 namespace Impostor.Commands.Core.DashBoard
 {
     public class PerformanceMonitors
@@ -12,26 +12,29 @@ namespace Impostor.Commands.Core.DashBoard
         /// </summary>
         public int CpuUsage{ get; private set; }
         public bool Running { get; private set; }
+        private Process ProcessCtx { get; set; }
         public PerformanceMonitors()
         {
-            Running = true;
-            var cpuThread = new Thread(MonitorCpu);
-            cpuThread.Start();
+            this.Running = true;
+            this.ProcessCtx = Process.GetCurrentProcess();
+            var monThr = new Thread(DoCount);
+            monThr.Start();
         }
 
-        private void MonitorCpu()
+        private DateTime _startTime, _endTime;
+        private TimeSpan _startUsage, _endUsage;
+        private void DoCount()
         {
-            var cpuUsage = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-            Thread.Sleep(1000);
-            var firstCall = cpuUsage.NextValue();
-
-            while(Running)
+            while (Running)
             {
-                Thread.Sleep(1000);
-                this.CpuUsage = (int) cpuUsage.NextValue();
+                _startTime = DateTime.Now;
+                _startUsage = ProcessCtx.TotalProcessorTime;
+                Thread.Sleep(1000); //should be good enough for the future.
+                _endTime = DateTime.Now;
+                _endUsage = ProcessCtx.TotalProcessorTime;
+                this.CpuUsage = (int)((((_endUsage - _startUsage).TotalMilliseconds) / (Environment.ProcessorCount * ((_endTime - _startTime).TotalMilliseconds))) * 100);
             }
         }
-
         public void Shutdown()
         {
             this.Running = false;
