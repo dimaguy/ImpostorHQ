@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Fleck;
 using System.IO;
 using System.Linq;
@@ -50,6 +51,7 @@ namespace Impostor.Commands.Core
         public JusticeSystem HighCourt{ get; set; }
         public GameCommandChatInterface ChatInterface { get; set; }
         public IEventManager EventManager{ get; set; }
+        private ParallelOptions Options { get; set; }
         #endregion
         /// <summary>
         /// This constructor will be 'injected' with the required references by the plugin API.
@@ -64,6 +66,8 @@ namespace Impostor.Commands.Core
             this.Logger = logger;
             this.MessageWriterProvider = provider;
             this.EventManager = manager;
+            this.Options = new ParallelOptions();
+            Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
         }
 
         #region Impostor low-level API members.
@@ -130,9 +134,10 @@ namespace Impostor.Commands.Core
             this.ChatInterface = new GameCommandChatInterface(MessageWriterProvider, Logger);
             this.GameEventListener = new GamePluginInterface(ChatInterface);
             //register commands : -->
-            GameEventListener.RegisterCommand(GamePluginInterface.CommandPrefixes.TestCommand);
-            GameEventListener.RegisterCommand(GamePluginInterface.CommandPrefixes.ReportCommand);
-            
+            //GameEventListener.RegisterCommand(GamePluginInterface.CommandPrefixes.TestCommand);
+            //GameEventListener.RegisterCommand(GamePluginInterface.CommandPrefixes.ReportCommand);
+            //-> disabled for Skeld.NET
+
             //we are ready to start listening for game events.
             EventManager.RegisterListener(GameEventListener);
             GameEventListener.OnPlayerCommandReceived += GameEventListener_OnPlayerCommandReceived;
@@ -146,7 +151,7 @@ namespace Impostor.Commands.Core
             var errorMimeHtml = File.ReadAllText(Path.Combine("dashboard", "mime.html"));
             //we initialize our servers and set up the events.
             this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys, Logger,GameManager);
-            this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml);
+            this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml,this);
             ApiServer.OnMessageReceived += DashboardCommandReceived;
 
             ApiServer.RegisterCommand(Structures.DashboardCommands.BansMessage,"=> will list the current permanent bans.");
@@ -352,6 +357,32 @@ namespace Impostor.Commands.Core
                 sb.Append($"  Total bans : {HighCourt.PermanentBans.Count}\n");
                 return sb.ToString();
             }
+        }
+        /// <summary>
+        /// This is used to get all the players connected to the server.
+        /// </summary>
+        /// <returns></returns>
+        public string CompilePlayers()
+        {
+            var sb = new StringBuilder();
+            lock (GameManager.Games)
+            {
+                Parallel.ForEach(GameManager.Games, Options, (game) =>
+                {
+                    lock (game.Players)
+                    {
+                        foreach (var player in game.Players)
+                        {
+                            sb.Append(player.Character.PlayerInfo.PlayerName);
+                            sb.Append(',');
+                            sb.Append(player.Client.Connection.EndPoint.Address.ToString());
+                            sb.Append("\n");
+                        }
+                    }
+                });
+            }
+
+            return sb.ToString();
         }
     }
 }

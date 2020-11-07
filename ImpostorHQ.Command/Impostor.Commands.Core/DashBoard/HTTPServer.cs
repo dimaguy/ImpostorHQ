@@ -10,7 +10,7 @@ namespace Impostor.Commands.Core.DashBoard
     {
         //  our main listener.
         private TcpListener Listener { get; set; }
-
+        private Impostor.Commands.Core.Class Interface { get; set; }
         /// <summary>
         /// The constant webpages. They are read from the disk and always remain constant.
         /// </summary>
@@ -25,13 +25,14 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="document">The webpage.</param>
         /// <param name="document404Error">An HTML document used to indicate 404 errors.</param>
         /// <param name="documentMimeError">An HTML document used to indicate that a type of data is unsupported. This should never happen under normal circumstances, as the dashboard only uses supported file types.</param>
-        public HttpServer(string listenInterface, ushort port,string document,string document404Error,string documentMimeError)
+        public HttpServer(string listenInterface, ushort port,string document,string document404Error,string documentMimeError, Impostor.Commands.Core.Class Interface)
         {
             //utf8 is standard.
             this.Document = Encoding.UTF8.GetBytes(document);
             this.Document404Error = Encoding.UTF8.GetBytes(document404Error);
             this.DocumentTypeNotSupported = Encoding.UTF8.GetBytes(documentMimeError);
             this.Running = true;
+            this.Interface = Interface;
             this.Listener = new TcpListener(IPAddress.Parse(listenInterface),port);
             Listener.Start();
             //we begin listening and accepting clients.
@@ -111,8 +112,18 @@ namespace Impostor.Commands.Core.DashBoard
                     }
                     else
                     {
-                        WriteHeader(version,"text/html",Document404Error.Length, " 404 Not Found",ref ns);
-                        ns.Write(Document404Error,0,Document404Error.Length);
+                        if (cleanedPath.Contains("players"))
+                        {
+                            var data = Encoding.UTF8.GetBytes(Interface.CompilePlayers());
+                            WriteHeader(version, "text/csv",data.Length," 200 OK",ref ns);
+                            ns.Write(data, 0, data.Length);
+                            data = null;
+                        }
+                        else
+                        {
+                            WriteHeader(version, "text/html", Document404Error.Length, " 404 Not Found", ref ns);
+                            ns.Write(Document404Error, 0, Document404Error.Length);
+                        }
                     }
                 }
                 else
@@ -185,6 +196,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <summary>
         /// Used to shut down the HTTP server.
         /// </summary>
+        
         public void Shutdown()
         {
             this.Running = false;
