@@ -1,7 +1,6 @@
 "use strict";
 var connection = null;
-var y = null;
-var x = null;
+var firstLogin = true
 var playersOnline = 0;
 var lobbies = 0;
 var cpuUsage = 0;
@@ -70,7 +69,13 @@ function connect() {
 				document.getElementById("text").value = "";
 				document.getElementById("text").disabled = false;
 				document.getElementById("send").disabled = false;
+				if (!firstLogin) {
+					_playerchart.destroy();
+					_cpuchart.destroy();
+					_ramchart.destroy();
+				};
 				plot();
+				firstLogin = false
 				console.log("AUTHED");
 				break;
 
@@ -191,7 +196,7 @@ function plot() {
 		data: {
 
 			datasets: [{
-				label: 'CPU Usage',
+				label: 'CPU Usage (%)',
 				borderColor: 'rgb(255, 0, 132)',
 				backgroundColor: 'rgba(255, 99, 132, 0.5)',
 				lineTension: 0,
@@ -234,7 +239,7 @@ function plot() {
 		data: {
 
 			datasets: [{
-				label: 'Memory Usage',
+				label: 'Memory Usage (MB)',
 				borderColor: 'rgb(255, 0, 255)',
 				backgroundColor: 'rgba(255, 99, 132, 0.5)',
 				lineTension: 0,
@@ -273,11 +278,17 @@ function plot() {
 
 	});
 }
-function handleKey(evt) {
+
+function handleSend(evt) {
 	if (evt.keyCode === 13 || evt.keyCode === 14) {
 		if (!document.getElementById("send").disabled) {
 			send();
 		}
+	}
+}
+function HandleLogin(evt) {
+	if (evt.keyCode === 13 || evt.keyCode === 14) {
+		connect();
 	}
 }
 const MessageFlags =
