@@ -17,8 +17,9 @@ var ctxRam = ramChart.getContext('2d');
 
 window.onload = onload();
 function onload() {
-	var msg = window.location.href.match(/\?apikey=(.*)/);
-	if (msg[1] != null) {
+	var autoapi = []
+	var autoapi = window.location.href.match(/\?apikey=(.*)/);
+	if (autoapi[1] != "") {
 	document.getElementById("apikey").value = msg[1];
 	}
 }
