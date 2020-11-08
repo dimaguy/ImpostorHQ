@@ -169,7 +169,7 @@ namespace Impostor.Commands.Core
             ApiServer.RegisterCommand(Structures.DashboardCommands.DeleteKey,"=> will delete the API key, if it is valid.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.ReloadBans,"=> this will reload the bans from the disk. This can be useful if you need to remove a ban, and don't want to restart the server. To do that, just delete the ban from the disk and execute this command.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.PlayerInfo," <username> => this will show information about a player.");
-
+            ApiServer.RegisterCommand(Structures.DashboardCommands.UnBanAddress," <IP address> => this is the equivalent of deleting a ban file and reloading the bans. The said player will be unbanned from the server, if he is banned.");
         }
 
         private void PlayerBanned(string username, string IP)
@@ -323,7 +323,7 @@ namespace Impostor.Commands.Core
                             isSingle = true;
                             if (HighCourt.BanPlayer(address, client.ConnectionInfo.ClientIpAddress))
                             {
-                                ApiServer.Push($"The target [{address} has been banned, permanently!","(SERVER/CRITICAL/WIDE)",Structures.MessageFlag.ConsoleLogMessage);
+                                ApiServer.Push($"The target [{address}] has been banned permanently by {client.ConnectionInfo.ClientIpAddress}!","(SERVER/CRITICAL/WIDE)",Structures.MessageFlag.ConsoleLogMessage);
                             }
                             else
                             {
@@ -362,6 +362,8 @@ namespace Impostor.Commands.Core
                             };
 
                             HighCourt.AddPermBan(report);
+                            ApiServer.Push($"The target [{address}] has been blindly banned by {client.ConnectionInfo.ClientIpAddress}!", "(SERVER/CRITICAL/WIDE)", Structures.MessageFlag.ConsoleLogMessage);
+                            isSingle = true;
                             handled = true;
                         }
                         else
@@ -485,6 +487,27 @@ namespace Impostor.Commands.Core
                         isSingle = true;
                         break;
                     }
+                    case Structures.DashboardCommands.UnBanAddress:
+                    {
+                        if (isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+
+                        isSingle = true;
+                        if (HighCourt.RemoveBan(message.Text))
+                        {
+                            ApiServer.PushTo($"The target player has been unbanned.", Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                            ApiServer.Push($"A player with the IP address [{message.Text}] has been unbanned by {client.ConnectionInfo.ClientIpAddress}.", Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage);
+
+                        }
+                        else
+                        {
+                            ApiServer.PushTo($"Error: the target player [{message.Text}] is not banned.", Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                        }
+                        break;
+                    }
                     default:
                         //a command that is not implemented or is invalid.
                         Logger.LogWarning($"{client.ConnectionInfo.ClientIpAddress} tried to execute an invalid command.");
@@ -497,7 +520,7 @@ namespace Impostor.Commands.Core
                     //we don't need to inform that the command was executed, if it is a command that returns data (like /help)
                     if (!isSingle) ApiServer.PushTo("Command executed successfully.", "cmdsys", Structures.MessageFlag.ConsoleLogMessage, client);
                 }
-                else ApiServer.PushTo("Invalid command.","cmdsys", Structures.MessageFlag.ConsoleLogMessage, client);
+                else ApiServer.PushTo("Invalid command.",Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
             }
             catch
             {
@@ -589,7 +612,7 @@ namespace Impostor.Commands.Core
             }
             else yield break;
         }
-
+        
         public bool AddApiKey(string key)
         {
             if (ApiServer.CheckKey(key))

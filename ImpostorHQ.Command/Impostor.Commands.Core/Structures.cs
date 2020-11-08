@@ -61,7 +61,7 @@ namespace Impostor.Commands.Core
             public const string AddKey = "/addkey";
             public const string ReloadBans = "/reloadbans";
             public const string PlayerInfo = "/playerinfo";
-            public const string UnbanAddress = "/unbanip";
+            public const string UnBanAddress = "/unbanip";
         }
 
         public class Exceptions

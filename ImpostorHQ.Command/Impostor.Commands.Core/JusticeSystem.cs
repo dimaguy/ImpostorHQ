@@ -189,6 +189,23 @@ namespace Impostor.Commands.Core
             LoadPermanentBans();
         }
 
+        public bool RemoveBan(string address)
+        {
+            lock (PermanentBans)
+            {
+                foreach (var report in PermanentBans)
+                {
+                    if (report.Target.Equals(address))
+                    {
+                        PermanentBans.Remove(report);
+                        File.Delete(Path.Combine(BanFolder, "ban-" + address + ".json"));
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
         /// <summary>
         /// Call this whenever a player spawns. It will handle any permanent bans.
         /// </summary>
