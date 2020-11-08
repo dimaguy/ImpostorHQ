@@ -58,10 +58,7 @@ namespace Impostor.Commands.Core
                 if (file.Contains("ban-"))
                 {
                     var report = JsonSerializer.Deserialize<Structures.Report>(File.ReadAllText(file));
-                    lock (PermanentBans)
-                    {
-                        PermanentBans.Add(report);
-                    }
+                    lock (PermanentBans) PermanentBans.Add(report);
                 }
             }
 
@@ -184,6 +181,12 @@ namespace Impostor.Commands.Core
             }
 
             File.WriteAllText(Path.Combine(BanFolder, $"ban-{rep.Target}.json"), JsonSerializer.Serialize(rep));
+        }
+
+        public void ReloadBans()
+        {
+            lock(PermanentBans) PermanentBans.Clear();
+            LoadPermanentBans();
         }
 
         /// <summary>

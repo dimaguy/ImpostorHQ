@@ -154,8 +154,8 @@ namespace Impostor.Commands.Core
             var error404Html = File.ReadAllText(Path.Combine("dashboard", "404.html"));
             var errorMimeHtml = File.ReadAllText(Path.Combine("dashboard", "mime.html"));
             //we initialize our servers and set up the events.
-            this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys, Logger,GameManager);
-            this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml,this);
+            this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys.ToArray(), Logger,GameManager);
+            this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml,this,ApiServer);
             ApiServer.OnMessageReceived += DashboardCommandReceived;
 
             ApiServer.RegisterCommand(Structures.DashboardCommands.BansMessage,"=> will list the current permanent bans.");
@@ -164,6 +164,11 @@ namespace Impostor.Commands.Core
             ApiServer.RegisterCommand(Structures.DashboardCommands.StatusMessage,"=> will show you some general statistics about the server.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.BanIpAddress, " <ip address> => will permanently ban the IP address. The players must be connected.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.BanIpAddressBlind," <ip address> => just like the above, but the player does not need to be connected. Warning: he will not be kicked if he is connected to a game. Use the above command if that is your intention.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.ListKeys,"=> will list all registered API keys.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.AddKey,"=> will register the selected key.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.DeleteKey,"=> will delete the API key, if it is valid.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.ReloadBans,"=> this will reload the bans from the disk. This can be useful if you need to remove a ban, and don't want to restart the server. To do that, just delete the ban from the disk and execute this command.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.PlayerInfo," <username> => this will show information about a player.");
 
         }
 
@@ -217,7 +222,7 @@ namespace Impostor.Commands.Core
                     //we now separate the data.
                     cmd = new string(message.Text.Take(message.Text.IndexOf(' ')).ToArray());
                     //we now extract the data.
-                    message.Text = message.Text.Remove(0, cmd.Length);
+                    message.Text = message.Text.Remove(0, cmd.Length+1); //remove ' '
                 }
                 else
                 {
@@ -235,23 +240,22 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
-                        lock (GameManager)
+                        
+                        lock (GameManager.Games)
                         {
-                            lock (GameManager.Games)
+                            //we broadcast to all games.
+                            //to do this, we compile a list, then broadcast the message in parallel.
+                            Task[] tasks = new Task[GameManager.Games.Count()];
+                            if (tasks.Length == 0) break;   //no lobbies.
+                            int index = 0;
+                            foreach (var game in GameManager.Games)
                             {
-                                //we broadcast to all games.
-                                //to do this, we compile a list, then broadcast the message in parallel.
-                                Task[] tasks = new Task[GameManager.Games.Count()];
-                                if (tasks.Length == 0) break;   //no lobbies.
-                                int index = 0;
-                                foreach (var game in GameManager.Games)
-                                {
-                                    tasks[index] = ChatInterface.SafeAsyncBroadcast(game, message.Text,
-                                        Structures.BroadcastType.Information);
-                                }
-                                //if this does not return, our server is not working.
-                                Task.WhenAny(tasks);
+                                tasks[index] = ChatInterface.SafeAsyncBroadcast(game, message.Text,
+                                    Structures.BroadcastType.Information);
                             }
+                            //if this does not return, our server is not working.
+                            var t = new Thread(()=>BroadcastCallback(tasks));
+                            t.Start();
                         }
                         break;
                     }
@@ -308,14 +312,18 @@ namespace Impostor.Commands.Core
                     }
                     case Structures.DashboardCommands.BanIpAddress:
                     {
-                        IPAddress Address;
-                        message.Text = message.Text.Trim().Replace(" ", "");
-                        if (IPAddress.TryParse(message.Text,out Address))
+                        if (isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+                        if (IPAddress.TryParse(message.Text,out IPAddress address))
                         {
                             handled = true;
-                            if (HighCourt.BanPlayer(Address, client.ConnectionInfo.ClientIpAddress))
+                            isSingle = true;
+                            if (HighCourt.BanPlayer(address, client.ConnectionInfo.ClientIpAddress))
                             {
-                                ApiServer.Push($"The target [{Address} has been banned, permanently!","(SERVER/CRITICAL/WIDE)",Structures.MessageFlag.ConsoleLogMessage);
+                                ApiServer.Push($"The target [{address} has been banned, permanently!","(SERVER/CRITICAL/WIDE)",Structures.MessageFlag.ConsoleLogMessage);
                             }
                             else
                             {
@@ -330,9 +338,12 @@ namespace Impostor.Commands.Core
                     }
                     case Structures.DashboardCommands.BanIpAddressBlind:
                     {
-                        IPAddress Address;
-                        message.Text = message.Text.Trim().Replace(" ", "");
-                        if (IPAddress.TryParse(message.Text, out Address))
+                        if (isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+                        if (IPAddress.TryParse(message.Text, out IPAddress address))
                         {
                             var report = new Structures.Report
                             {
@@ -344,7 +355,7 @@ namespace Impostor.Commands.Core
                                 {
                                     client.ConnectionInfo.ClientIpAddress
                                 },
-                                Target = Address.ToString(),
+                                Target = address.ToString(),
                                 TargetName = "<unknown>",
                                 MinutesRemaining = 0,
                                 TotalReports = 0
@@ -359,8 +370,124 @@ namespace Impostor.Commands.Core
                         }
                         break;
                     }
+                    case Structures.DashboardCommands.ListKeys:
+                    {
+                        if (!isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+                        string response = "Api keys:\n";
+                        lock (ApiServer.ApiKeys)
+                        {
+                            foreach (var key in ApiServer.ApiKeys)
+                            {
+                                response += $"  \"{key}\"\n";
+                            }
+                        }
+                        ApiServer.PushTo(response,Structures.ServerSources.SystemInfo,Structures.MessageFlag.ConsoleLogMessage,client);
+                        break;
+                    }
+                    case Structures.DashboardCommands.AddKey:
+                    {
+                        if (isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+                        lock (ApiServer.ApiKeys)
+                        {
+                            if (!AddApiKey(message.Text))
+                            {
+                                ApiServer.PushTo("Cannot add key: the key already exists.",Structures.ServerSources.DebugSystem,Structures.MessageFlag.ConsoleLogMessage,client);
+                                isSingle = true; //we inhibit it from sending 'Command executed successfully'
+                            }
+                            else
+                            {
+                                isSingle = true; //we inhibit it from sending 'Command executed successfully'
+                                ApiServer.PushTo($"The key \"{message.Text}\" is now valid and can be used.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage,client);
+                            }
+                        }
+                        break;
+                    }
+                    case Structures.DashboardCommands.DeleteKey:
+                    {
+                        if (isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+                        lock(ApiServer.ApiKeys)
+                            if (ApiServer.ApiKeys.Count == 1)
+                            {
+                                isSingle = true;
+                                ApiServer.PushTo($"The key \"{message.Text}\" cannot be removed, because it is the only remaining key. In order to remove it, please add another key, then execute this command.", Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                                break;
+                            }
+                        if (RemoveKey(message.Text))
+                        {
+                            isSingle = true;
+                            ApiServer.ApiKeys.Remove(message.Text);
+                            ApiServer.PushTo($"The key \"{message.Text}\" is now gone.", Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                        }
+                        else
+                        {
+                            isSingle = true;
+                            ApiServer.PushTo($"Cannot delete the key \"{message.Text}\". It is not registered.", Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                        }
+                        break;
+                    }
+                    case Structures.DashboardCommands.ReloadBans:
+                    {
+                        if (!isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+                        isSingle = false; //we need to show that it executed.
+                        HighCourt.ReloadBans();
+                        break;
+                        
+                    }
+                    case Structures.DashboardCommands.PlayerInfo:
+                    {
+                        if (isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+                        StringBuilder response = new StringBuilder();
+                        response.Append("Players matching request: ");
+                        bool matches = false;
+                        foreach (var player in GetPlayers())
+                        {
+                            if (player.Character.PlayerInfo.PlayerName.Contains(message.Text,
+                                StringComparison.InvariantCultureIgnoreCase))
+                            {
+                                if (!matches)
+                                {
+                                    matches = true;
+                                    response.Append("\n");
+                                }
+                                response.AppendLine($"  {player.Character.PlayerInfo.PlayerName}, Address: {player.Client.Connection.EndPoint.Address}:");
+                                response.AppendLine($"      Lobby: {player.Game.Code.Code}");
+                                response.AppendLine($"      Dead: {player.Character.PlayerInfo.IsDead}");
+                                response.AppendLine($"      Impostor: {player.Character.PlayerInfo.IsImpostor}");
+                                response.AppendLine($"      Color: {(Structures.PlayerColor)player.Character.PlayerInfo.ColorId}");
+                                response.AppendLine($"      Hat: {(Structures.HatId) player.Character.PlayerInfo.HatId}");
+                                response.AppendLine($"      Pet: {(Structures.PetId) player.Character.PlayerInfo.PetId}");
+                                response.AppendLine($"      Skin: {(Structures.SkinId) player.Character.PlayerInfo.SkinId}");
+                            }
+                        }
+
+                        if (!matches) response.Append("No matches.");
+                        ApiServer.PushTo(response.ToString(),Structures.ServerSources.SystemInfo,Structures.MessageFlag.ConsoleLogMessage,client);
+                        isSingle = true;
+                        break;
+                    }
                     default:
                         //a command that is not implemented or is invalid.
+                        Logger.LogWarning($"{client.ConnectionInfo.ClientIpAddress} tried to execute an invalid command.");
                         handled = false;
                         break;
                 }
@@ -374,10 +501,18 @@ namespace Impostor.Commands.Core
             }
             catch
             {
-                //invalid messagereturn;
+                //invalid message
             }
         }
-        
+
+        private void BroadcastCallback(Task[] targets)
+        {
+            //this should take care of some issues.
+            Parallel.ForEach(targets, Options, (broadcastTask) =>
+            {
+                Task.Run(()=>broadcastTask);
+            });
+        }
         /// <summary>
         /// We use this function to construct a response to the status request.
         /// </summary>
@@ -427,6 +562,7 @@ namespace Impostor.Commands.Core
             var sb = new StringBuilder();
             foreach (var player in GetPlayers())
             {
+                if (player.Client.Connection == null) continue;
                 sb.Append(player.Character.PlayerInfo.PlayerName);
                 sb.Append(',');
                 sb.Append(player.Client.Connection.EndPoint.Address.ToString());
@@ -438,18 +574,48 @@ namespace Impostor.Commands.Core
 
         public IEnumerable<IClientPlayer> GetPlayers()
         {
+            List<IClientPlayer> temporaryList = new List<IClientPlayer>();
             lock (GameManager.Games)
             {
-                foreach (var game in GameManager.Games)
+                foreach (var gameManagerGame in GameManager.Games)
                 {
-                    lock (game.Players)
-                    {
-                        foreach (var player in game.Players)
-                        {
-                            yield return player;
-                        }
-                    }
+                    temporaryList.AddRange(gameManagerGame.Players);
                 }
+            }
+
+            if (temporaryList.Count > 0)
+            {
+                foreach (var player in temporaryList) yield return player;
+            }
+            else yield break;
+        }
+
+        public bool AddApiKey(string key)
+        {
+            if (ApiServer.CheckKey(key))
+            {
+                //key already exists.
+                return false;
+            }
+            else
+            {
+                ApiServer.AddKey(key);
+                Configuration.APIKeys.Add(key);
+                return true;
+            }
+        }
+
+        public bool RemoveKey(string key)
+        {
+            if (!ApiServer.CheckKey(key))
+            {
+                return false;
+            }
+            else
+            {
+                ApiServer.RemoveKey(key);
+                Configuration.APIKeys.Remove(key);
+                return true;
             }
         }
     }

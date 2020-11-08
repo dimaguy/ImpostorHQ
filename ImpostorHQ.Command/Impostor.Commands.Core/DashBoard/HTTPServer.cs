@@ -17,6 +17,7 @@ namespace Impostor.Commands.Core.DashBoard
         public readonly byte[] Document, Document404Error, DocumentTypeNotSupported;
         //  indicates whether or not we should continue accepting clients.
         public bool Running { get; private set; }
+        private WebApiServer ApiServer { get; set; }
         /// <summary>
         /// Creates a new instance of our HTTP server. This is used to inject the HTML client into browsers.
         /// </summary>
@@ -25,7 +26,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="document">The webpage.</param>
         /// <param name="document404Error">An HTML document used to indicate 404 errors.</param>
         /// <param name="documentMimeError">An HTML document used to indicate that a type of data is unsupported. This should never happen under normal circumstances, as the dashboard only uses supported file types.</param>
-        public HttpServer(string listenInterface, ushort port,string document,string document404Error,string documentMimeError, Impostor.Commands.Core.Class Interface)
+        public HttpServer(string listenInterface, ushort port,string document,string document404Error,string documentMimeError, Impostor.Commands.Core.Class Interface,WebApiServer apiServer)
         {
             //utf8 is standard.
             this.Document = Encoding.UTF8.GetBytes(document);
@@ -34,6 +35,7 @@ namespace Impostor.Commands.Core.DashBoard
             this.Running = true;
             this.Interface = Interface;
             this.Listener = new TcpListener(IPAddress.Parse(listenInterface),port);
+            this.ApiServer = apiServer;
             Listener.Start();
             //we begin listening and accepting clients.
             Listener.BeginAcceptTcpClient(EndAccept, Listener);
@@ -52,6 +54,7 @@ namespace Impostor.Commands.Core.DashBoard
             {
                 var client = listener.EndAcceptTcpClient(ar);
                 var ns = client.GetStream();
+                var address = ((IPEndPoint) client.Client.RemoteEndPoint).Address;
                 var startPos = 0;
                 var receiveBuffer = new byte[1024]; //should not give us trouble.
 
@@ -112,12 +115,26 @@ namespace Impostor.Commands.Core.DashBoard
                     }
                     else
                     {
-                        if (cleanedPath.Contains("players"))
+                        if (cleanedPath.StartsWith("dashboard\\players")&&cleanedPath.Length>17&&cleanedPath.Contains('?'))
                         {
-                            var data = Encoding.UTF8.GetBytes(Interface.CompilePlayers());
-                            WriteHeader(version, "text/csv",data.Length," 200 OK",ref ns);
-                            ns.Write(data, 0, data.Length);
-                            data = null;
+                            var key = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1);
+                            if(ApiServer.CheckKey(key))
+                            {
+                                var data = Encoding.UTF8.GetBytes(Interface.CompilePlayers());
+                                WriteHeader(version, "text/csv", data.Length, " 200 OK", ref ns);
+                                ns.Write(data, 0, data.Length);
+                                data = null;
+                                ApiServer.Push($"Players listed by: {address}, with key : {key}.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage);
+                            }
+                            else
+                            {
+                                var data = Encoding.UTF8.GetBytes(
+                                    "<h1>You have entered an invalid key. Your IP Address will be broadcast to all admins, for that. Please stop trying to break into our system!</h1>");
+                                WriteHeader(version, "text/html", data.Length, " 200 OK", ref ns);
+                                ApiServer.Push($"Critical: {address} tried to list players with an invalid API key.",Structures.ServerSources.DebugSystemCritical,Structures.MessageFlag.ConsoleLogMessage);
+                                ns.Write(data,0,data.Length);
+                            }
+
                         }
                         else
                         {

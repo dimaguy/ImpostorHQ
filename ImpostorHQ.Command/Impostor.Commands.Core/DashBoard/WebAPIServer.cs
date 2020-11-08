@@ -24,7 +24,7 @@ namespace Impostor.Commands.Core.DashBoard
         //  This is used in the parallel command parser.
         public ParallelOptions Options { get; private set; }
         // A list of accepted keys for authentication.
-        private List<string> ApiKeys { get; set; }
+        public List<string> ApiKeys { get; private set; }
         // The web socket server.
         private WebSocketServer Server { get; set; }
         // The global logger, to write warnings and errors to the console.
@@ -335,6 +335,27 @@ namespace Impostor.Commands.Core.DashBoard
                 Counters.CpuUsage,
                 Counters.MemoryUsage
             };
+        }
+
+        public bool CheckKey(string key)
+        {
+            lock (ApiKeys) if (ApiKeys.Contains(key)) return true;
+            return false;
+        }
+        public void AddKey(string key)
+        {
+            lock (ApiKeys)
+            {
+                if(!ApiKeys.Contains(key)) ApiKeys.Add(key);
+            }
+        }
+
+        public void RemoveKey(string key)
+        {
+            lock (ApiKeys)
+            {
+                if (ApiKeys.Contains(key)) ApiKeys.Remove(key);
+            }
         }
 
         public delegate void DelMessageReceived(Structures.BaseMessage message,IWebSocketConnection connection);

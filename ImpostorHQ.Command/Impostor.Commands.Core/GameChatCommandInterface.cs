@@ -91,8 +91,9 @@ namespace Impostor.Commands.Core
                 }
 
             }
-            await client.Character.SetNameAsync(cName + $"{src}").ConfigureAwait(false);
-            await client.Character.SendChatAsync(cName + message).ConfigureAwait(false);
+            //cName disabled : possible ban source.
+            await client.Character.SetNameAsync($"{src}").ConfigureAwait(false);
+            await client.Character.SendChatAsync(message).ConfigureAwait(false);
             await client.Character.SetColorAsync(originalColor).ConfigureAwait(false);
             await client.Character.SetNameAsync(originalName).ConfigureAwait(false);
         }
@@ -145,11 +146,12 @@ namespace Impostor.Commands.Core
                 }
 
             }
+            //colored name disabled : possible ban source.
             //we now finish compiling the colored name and set it.
-            var srcName = (coloredName + $"{source}");
+            var srcName = ($"{source}");
             await player.Character.SetNameAsync(srcName).ConfigureAwait(false);
             //we now finish compiling the colored message string.
-            var srcMessage = (coloredName + message);
+            var srcMessage = (message);
             var connection = player.Client.Connection;
             if(connection==null) return; //how?
             //we now compile the final packet.
@@ -175,6 +177,7 @@ namespace Impostor.Commands.Core
             //the second try loop is for catching unknown errors.
             try
             {
+                if (game == null) return;
                 SafeMultiMessage(game, message, type);
             }
             catch (Exception ex)
