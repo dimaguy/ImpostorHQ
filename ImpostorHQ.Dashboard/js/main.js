@@ -15,13 +15,26 @@ var ctxCpu = cpuChart.getContext('2d');
 var ramChart = document.getElementById('ramChart');
 var ctxRam = ramChart.getContext('2d');
 
+const MessageFlags =
+{
+	LoginApiRequest: "0",      // A request to log in, with a given API key.
+	LoginApiAccepted: "1",     // The API Key is correct, so the login is successful.
+	LoginApiRejected: "2",     // The API key is incorrect, so the login is rejected.
+	ConsoleLogMessage: "3",    // Server Message
+	ConsoleCommand: "4",       // A command sent from the dashboard to the API.
+	HeartbeatMessage: "5",     // Quick sanity check with some statistics
+	GameListMessage: "6",      // Not implemented yet.
+	DoKickOrDisconnect: "7"    // A message when a client is kicked or the server shuts down.
+}
+
 window.onload = onload();
 function onload() {
 	var autoapi = []
 	var autoapi = window.location.href.match(/\?apikey=(.*)/);
-	if (autoapi[1] != "") {
-	document.getElementById("apikey").value = msg[1];
-	}
+	console.log(autoapi);
+//	if (autoapi[1] != "") {
+//	document.getElementById("apikey").value = msg[1];
+//	}
 }
 
 function connect() {
@@ -306,15 +319,4 @@ function HandleLogin(evt) {
 	if (evt.keyCode === 13 || evt.keyCode === 14) {
 		connect();
 	}
-}
-const MessageFlags =
-{
-	LoginApiRequest: "0",      // A request to log in, with a given API key.
-	LoginApiAccepted: "1",     // The API Key is correct, so the login is successful.
-	LoginApiRejected: "2",     // The API key is incorrect, so the login is rejected.
-	ConsoleLogMessage: "3",    // Server Message
-	ConsoleCommand: "4",       // A command sent from the dashboard to the API.
-	HeartbeatMessage: "5",     // Quick sanity check with some statistics
-	GameListMessage: "6",      // Not implemented yet.
-	DoKickOrDisconnect: "7"    // A message when a client is kicked or the server shuts down.
 }
