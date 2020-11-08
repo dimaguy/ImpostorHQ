@@ -29,12 +29,11 @@ const MessageFlags =
 
 window.onload = onload();
 function onload() {
-	var autoapi = []
 	var autoapi = window.location.href.match(/\?apikey=(.*)/);
 	console.log(autoapi);
-//	if (autoapi[1] != "") {
-//	document.getElementById("apikey").value = msg[1];
-//	}
+	if (autoapi != null) {
+	document.getElementById("apikey").value = autoapi[1];
+	}
 }
 
 function connect() {
