@@ -30,7 +30,6 @@ const MessageFlags =
 window.onload = onload();
 function onload() {
 	var autoapi = window.location.href.match(/\?apikey=(.*)/);
-	console.log(autoapi);
 	if (autoapi != null) {
 	document.getElementById("apikey").value = autoapi[1];
 	}
