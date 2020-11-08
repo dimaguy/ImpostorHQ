@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -9,6 +10,7 @@ using System.Threading.Tasks;
 using Impostor.Api.Events.Player;
 using Impostor.Api.Games;
 using Impostor.Api.Games.Managers;
+using Impostor.Commands.Core.DashBoard;
 using Microsoft.Extensions.Logging;
 
 namespace Impostor.Commands.Core
@@ -29,7 +31,7 @@ namespace Impostor.Commands.Core
         private string BanFolder { get; set; }
         //  a chat interface, used to interact with witnesses.
         private GameCommandChatInterface ChatInterface { get; set; }
-        private Class Manager { get; set; } 
+        private Class Manager { get; set; }
         /// <summary>
         /// This will initialize a new instance of the JusticeSystem class. It is an example extension, which handles banning cheaters.
         /// </summary>
@@ -182,7 +184,67 @@ namespace Impostor.Commands.Core
 
             File.WriteAllText(Path.Combine(BanFolder, $"ban-{rep.Target}.json"), JsonSerializer.Serialize(rep));
         }
+        /// <summary>
+        /// Can be used by modified impostor servers to ban players, for e.g anti-cheat reasons.
+        /// </summary>
+        /// <param name="address">The address of the target to ban.</param>
+        /// <param name="name">The player name of the target to ban.</param>
+        /// <param name="reason">The reason for the ban. It will appear in the ban file.</param>
+        /// <param name="source">The source system that triggered the ban, e.g "RPC Cheat Detection"</param>
+        public void ExternalBanPlayer(string address, string name, string reason, string source)
+        {
+            AddPermBan( new Structures.Report
+            {
+                Sources = new List<string>()
+            {
+                source
+            },
+                Messages = new List<string>()
+            {
+                reason
+            },
+                Target = address,
+                TargetName = name,
+                TotalReports = 0,
+                MinutesRemaining = 0
+            });
+            var message = string.Empty;
+            try
+            {
+                foreach (var possibleTarget in Manager.GetPlayers())
+                {
+                    var connection = possibleTarget.Client.Connection;
+                    if (connection != null)
+                    {
+                        if (connection.EndPoint.Address.ToString().Equals(address))
+                        {
+                            possibleTarget.BanAsync();
+                            message = "The target was also connected to a lobby. He has been kicked.";
+                            break;
+                        }
+                    }
 
+                }
+
+                message = "The target was not playing in any lobby.";
+            }
+            catch (Exception e)
+            {
+                message = $"Unfortunately, a critical error has occured : {e.Message}";
+            }
+            finally
+            {
+                try
+                {
+                    Manager.ApiServer.Push($"Critical : external ban function was called, by \"{source}\", because \"{reason}\", banning \"{name}/{address}\". {message}", Structures.ServerSources.ExternalCall, Structures.MessageFlag.ConsoleLogMessage);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"CRITICAL : Push error occured! : {ex.Message}");
+                }
+            }
+
+        }
         public void ReloadBans()
         {
             lock(PermanentBans) PermanentBans.Clear();
