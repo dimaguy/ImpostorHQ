@@ -122,7 +122,7 @@ namespace Impostor.Commands.Core
             public const string DebugSystem = "dbg-sys";
             public const string DebugSystemCritical = "dbg-sys / CRITICAL";
             public const string SystemInfo = "sysinfo";
-
+            public const string ExternalCall = "impostor/externalcall";
         }
 
         public enum PlayerColor
