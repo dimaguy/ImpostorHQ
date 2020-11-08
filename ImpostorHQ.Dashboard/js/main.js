@@ -36,6 +36,10 @@ function onload() {
 }
 
 function connect() {
+	if (document.getElementById("apikey").value == null) {
+		console.log("Empty Api Key");
+		return;
+	};
 	var serverUrl;
 	var scheme = "ws";
 
