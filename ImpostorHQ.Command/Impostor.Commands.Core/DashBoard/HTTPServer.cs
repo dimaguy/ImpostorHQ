@@ -86,11 +86,15 @@ namespace Impostor.Commands.Core.DashBoard
                 if (!directory.Contains("..")) //   Only root ('/') is allowed.
                 {
                     var cleanedPath = GetLocalPath(file, directory);
-
+                    if (!cleanedPath.Contains("players.csv") && cleanedPath.Contains("?")) //you are angering me dima
+                    {
+                        cleanedPath = cleanedPath.Remove(cleanedPath.IndexOf("?"),
+                            cleanedPath.Length - cleanedPath.IndexOf("?"));
+                    }
                     //COMPARISION : If file exists, move on to the next comparision. If not, send the error.
                     if (File.Exists(cleanedPath))
                     {
-                        var mimeType = ParseMime(file);
+                        var mimeType = ParseMime(cleanedPath);
                         //COMPARISION : If the file type is supported, move on to the next comparision. If not, send the error.
                         if (mimeType != null)
                         {
@@ -115,7 +119,7 @@ namespace Impostor.Commands.Core.DashBoard
                     }
                     else
                     {
-                        if (cleanedPath.StartsWith("dashboard\\players")&&cleanedPath.Length>17&&cleanedPath.Contains('?'))
+                        if (cleanedPath.StartsWith("dashboard\\players.csv")&&cleanedPath.Length>17&&cleanedPath.Contains('?'))
                         {
                             var key = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1);
                             if(ApiServer.CheckKey(key))
