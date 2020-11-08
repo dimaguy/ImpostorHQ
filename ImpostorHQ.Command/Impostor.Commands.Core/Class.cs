@@ -589,7 +589,7 @@ namespace Impostor.Commands.Core
                 sb.Append(player.Character.PlayerInfo.PlayerName);
                 sb.Append(',');
                 sb.Append(player.Client.Connection.EndPoint.Address.ToString());
-                sb.Append("\n");
+                sb.Append("\r\n");
             }
             
             return sb.ToString();
