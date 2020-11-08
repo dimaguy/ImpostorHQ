@@ -15,6 +15,12 @@ var ctxCpu = cpuChart.getContext('2d');
 var ramChart = document.getElementById('ramChart');
 var ctxRam = ramChart.getContext('2d');
 
+window.onload = onload();
+function onload() {
+	var msg = window.location.href.match(/\?apikey=(.*)/);
+	document.getElementById("apikey").value = msg[1];
+}
+
 function connect() {
 	var serverUrl;
 	var scheme = "ws";
@@ -67,6 +73,7 @@ function connect() {
 				document.getElementById("status").style.color = "green";
 				document.getElementById("status").innerHTML = "Logged in!";
 				document.getElementById("text").value = "";
+				document.getElementById("PlayersCSV").href = "/players?" + document.getElementById("apikey").value;
 				document.getElementById("text").disabled = false;
 				document.getElementById("send").disabled = false;
 				if (!firstLogin) {
@@ -92,6 +99,7 @@ function connect() {
 				document.getElementById("text").value = "";
 				document.getElementById("text").disabled = true;
 				document.getElementById("send").disabled = true;
+				document.getElementById("PlayersCSV").href = "";
 				_playerchart.destroy();
 				_cpuchart.destroy();
 				_ramchart.destroy();
