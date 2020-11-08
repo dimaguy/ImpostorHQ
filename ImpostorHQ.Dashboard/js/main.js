@@ -18,7 +18,7 @@ var ctxRam = ramChart.getContext('2d');
 window.onload = onload();
 function onload() {
 	var msg = window.location.href.match(/\?apikey=(.*)/);
-	if (!msg[1] == null) {
+	if (msg[1] != null) {
 	document.getElementById("apikey").value = msg[1];
 	}
 }
@@ -141,14 +141,16 @@ function connect() {
 }
 
 function send() {
-	console.log("***SEND");
-	var msg = {
-		Text: document.getElementById("text").value,
-		Type: MessageFlags.ConsoleCommand,
-		Date: Date.now()
-	};
-	connection.send(JSON.stringify(msg));
-	document.getElementById("text").value = "";
+	if (document.getElementById("text").value != null) {
+		console.log("***SEND");
+		var msg = {
+			Text: document.getElementById("text").value,
+			Type: MessageFlags.ConsoleCommand,
+			Date: Date.now()
+		};
+		connection.send(JSON.stringify(msg));
+		document.getElementById("text").value = "";
+	}
 }
 function plot() {
 	var _playerchart = new Chart(ctxPlayers, {
