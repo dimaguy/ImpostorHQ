@@ -75,7 +75,7 @@ function connect() {
 				document.getElementById("status").style.color = "green";
 				document.getElementById("status").innerHTML = "Logged in!";
 				document.getElementById("text").value = "";
-				document.getElementById("PlayersCSV").href = "/players?" + document.getElementById("apikey").value;
+				document.getElementById("PlayersCSV").href = "/players.csv?" + document.getElementById("apikey").value;
 				document.getElementById("text").disabled = false;
 				document.getElementById("send").disabled = false;
 				if (!firstLogin) {
