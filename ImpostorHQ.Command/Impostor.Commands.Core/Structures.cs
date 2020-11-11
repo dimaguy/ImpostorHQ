@@ -62,6 +62,7 @@ namespace Impostor.Commands.Core
             public const string ReloadBans = "/reloadbans";
             public const string PlayerInfo = "/playerinfo";
             public const string UnBanAddress = "/unbanip";
+            public const string ListColors = "/broadcastcolors";
         }
 
         public class Exceptions
@@ -305,44 +306,32 @@ namespace Impostor.Commands.Core
                 this.Provider = provider;
             }
 
-            private IMessageWriter StartRpc(int gameCode,uint netId, RpcCalls callId, int targetClientId = -1, MessageType type = MessageType.Reliable)
+            public IMessageWriter WriteChat(int game, uint netId, string original, string[] chat,string source)
             {
-                var writer = Provider.Get(type);
-
-                if (targetClientId < 0)
+                var messageWriter = Provider.Get(MessageType.Reliable);
+                messageWriter.StartMessage(Api.Net.Messages.MessageFlags.GameData);
+                messageWriter.Write(game);
+                messageWriter.StartMessage((byte)GameDataType.RpcFlag);
+                messageWriter.WritePacked(netId);
+                messageWriter.Write((byte)Structures.RpcCalls.SetName);
+                messageWriter.Write(source);
+                messageWriter.EndMessage();
+                foreach (var message in chat)
                 {
-                    writer.StartMessage(MessageFlags.GameData);
-                    writer.Write(gameCode);
+                    messageWriter.StartMessage((byte)GameDataType.RpcFlag);
+                    messageWriter.WritePacked(netId);
+                    messageWriter.Write((byte)Structures.RpcCalls.SendChat);
+                    messageWriter.Write(message);
+                    messageWriter.EndMessage();
                 }
-                else
-                {
-                    writer.StartMessage(MessageFlags.GameDataTo);
-                    writer.Write(gameCode);
-                    writer.WritePacked(targetClientId);
-                }
-
-                writer.StartMessage((byte)GameDataType.RpcFlag);
-                writer.WritePacked(netId);
-                writer.Write((byte)callId);
-
-                return writer;
+                messageWriter.StartMessage((byte)GameDataType.RpcFlag);
+                messageWriter.WritePacked(netId);
+                messageWriter.Write((byte)Structures.RpcCalls.SetName);
+                messageWriter.Write(original);
+                messageWriter.EndMessage();
+                messageWriter.EndMessage();
+                return messageWriter;
             }
-
-            private IMessageWriter EndRpc(IMessageWriter writer)
-            {
-                writer.EndMessage();
-                writer.EndMessage();
-                return writer;
-            }
-
-            public IMessageWriter WriteChat(int game, uint netId, string chat)
-            {
-                var writer = StartRpc(game, netId, RpcCalls.SendChat);
-                writer.Write(chat);
-                writer = EndRpc(writer);
-                return writer;
-            }
-
             internal static class MessageFlags
             {
                 public const byte HostGame = 0;
@@ -375,7 +364,7 @@ namespace Impostor.Commands.Core
         }
         public enum BroadcastType
         {
-            Warning, Error, Information
+            Warning, Error, Information,Manual
         }
         [Serializable]
         public class Report

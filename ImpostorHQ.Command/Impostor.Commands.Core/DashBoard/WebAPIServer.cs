@@ -254,9 +254,22 @@ namespace Impostor.Commands.Core.DashBoard
             }
             catch(Exception ex)
             {
-                //we'd like all the dashboards to know that they have been betrayed.
-                Push($"{ex.Message}",Structures.ServerSources.DebugSystemCritical,Structures.MessageFlag.ConsoleLogMessage,null);
-                Logger.LogError(ex.Message);
+                if (ex.Message.Contains("closing"))
+                {
+                    if (connection != null)
+                    {
+                        lock(Clients)
+                            if (Clients.Contains(connection))
+                                Clients.Remove(connection);
+                    }
+                }
+                else
+                {
+                    //we'd like all the dashboards to know that they have been betrayed.
+                    Push($"Critical unhandled(suppressed) push error : {ex.Message}", Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage, null);
+                    Logger.LogError(ex.Message);
+                }
+                
             }
         }
 

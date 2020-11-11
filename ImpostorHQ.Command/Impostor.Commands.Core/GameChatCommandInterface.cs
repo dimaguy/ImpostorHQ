@@ -58,44 +58,50 @@ namespace Impostor.Commands.Core
         /// <param name="message">The message to broadcast.</param>
         /// <param name="messageType">The type of broadcast message. This affects the color of the in-game source.</param>
         /// <param name="src">The source of the message, that will appear in-game.</param>
-        public async void Broadcast(IGame Game, string message, Structures.BroadcastType messageType, string src)
+        public async void Broadcast(IGame game, string message, Structures.BroadcastType messageType, string src)
         {
-            var client = Game.Players.FirstOrDefault();
-            if (client == null)
-            {
-                throw new Structures.Exceptions.PlayerNullException();
-            }
-            //what do you think?
-            var originalName = client.Character.PlayerInfo.PlayerName;
-            var originalColor = client.Character.PlayerInfo.ColorId;
-            var cName = string.Empty;
+            var colorName = string.Empty;
             switch (messageType)
             {
                 case Structures.BroadcastType.Error:
                 {
-                    await client.Character.SetColorAsync(ColorType.Red).ConfigureAwait(false);
-                    cName += "[FF0000FF]";
+                    colorName += "[FF0000FF]";
                     break;
                 }
                 case Structures.BroadcastType.Warning:
                 {
-                    await client.Character.SetColorAsync(ColorType.Yellow).ConfigureAwait(false);
-                    cName += "[FFFF00FF]";
+                    colorName += "[FFFF00FF]";
                     break;
                 }
                 case Structures.BroadcastType.Information:
                 {
-                    await client.Character.SetColorAsync(ColorType.Green).ConfigureAwait(false);
-                    cName += "[00FF00FF]";
+                    colorName += "[00FF00FF]";
+                    break;
+                }
+                case Structures.BroadcastType.Manual:
+                {
+                    //the color is in the message already.
                     break;
                 }
 
             }
             //cName disabled : possible ban source.
-            await client.Character.SetNameAsync($"{src}").ConfigureAwait(false);
-            await client.Character.SendChatAsync(message).ConfigureAwait(false);
-            await client.Character.SetColorAsync(originalColor).ConfigureAwait(false);
-            await client.Character.SetNameAsync(originalName).ConfigureAwait(false);
+            message = colorName + message;
+            foreach (var destination in game.Players.ToList())
+            {
+                if (destination.Client.Connection == null || !destination.Client.Connection.IsConnected)
+                {
+                    Logger.LogWarning("ImpostorHQ : Warning - a residual client has been identified.");
+                    continue;
+                }
+                var msg = (Generator.WriteChat(
+                    game.Code.Value, 
+                    destination.Character.NetId,
+                    destination.Character.PlayerInfo.PlayerName, 
+                    new string[] {message}, src
+                    ));
+                using (msg) destination.Client.Connection.SendAsync(msg);
+            }
         }
 
         #pragma warning disable CS1998
@@ -108,61 +114,46 @@ namespace Impostor.Commands.Core
         /// <param name="type">The type of the message.</param>
         public async void PrivateMessage(IClientPlayer player,string message,string source, Structures.BroadcastType type)
         {
-            /*  STRUCTURE->
-             *      Get carrier player (which is also our recipient).
-             *      Compile colored name and message.
-             *      Change our carrier's colors to what we require.
-             *      Encode the new RPC network packet, with the source being the synced carrier.
-             *      Send it to the target player (which will make it appear that our fake carrier send the message).
-             *      Set the player's name and color back.
-             */
-            //  we need this in order to color the player's name.
             var coloredName = string.Empty;
-            //  the carrier will be synced with the target, and our fake message will appear
-            //  to be coming from the carrier.
-            //  we now store the original data of the carrier, so we can reset his values.
-            var oName = player.Character.PlayerInfo.PlayerName;
-            var oColor = player.Character.PlayerInfo.ColorId;
+            var origName = player.Character.PlayerInfo.PlayerName;
+
             switch (type)
             {
                 //we now set the color and compile the name.
                 case Structures.BroadcastType.Error:
                 {
                     coloredName += "[FF0000FF]";
-                    await player.Character.SetColorAsync(ColorType.Red).ConfigureAwait(false);
                     break;
                 }
                 case Structures.BroadcastType.Warning:
                 {
                     coloredName += "[FFFF00FF]";
-                    await player.Character.SetColorAsync(ColorType.Yellow).ConfigureAwait(false);
                     break;
                 }
                 case Structures.BroadcastType.Information:
                 {
                     coloredName += "[00FF00FF]";
-                    await player.Character.SetColorAsync(ColorType.Green).ConfigureAwait(false);
+                    break;
+                }
+                case Structures.BroadcastType.Manual:
+                {
+                    //the color is in the message already.
                     break;
                 }
 
             }
-            //colored name disabled : possible ban source.
-            //we now finish compiling the colored name and set it.
-            var srcName = ($"{source}");
-            await player.Character.SetNameAsync(srcName).ConfigureAwait(false);
             //we now finish compiling the colored message string.
-            var srcMessage = (message);
+            var srcMessage = coloredName + message;
             var connection = player.Client.Connection;
             if(connection==null) return; //how?
             //we now compile the final packet.
-            var chatMessage = Generator.WriteChat(player.Game.Code, player.Character.NetId, srcMessage);
-            
-            await connection.SendAsync(chatMessage).ConfigureAwait(false);
-            chatMessage.Dispose();
-            
-            //reset the carrier player's stats.
-            await player.Character.SetColorAsync(oColor).ConfigureAwait(false);
-            await player.Character.SetNameAsync(oName).ConfigureAwait(false);
+            using (var chatMessage = Generator.WriteChat(
+                    player.Game.Code, 
+                    player.Character.NetId, 
+                    origName, 
+                    new string[] { srcMessage }, 
+                    source
+                )) await connection.SendAsync(chatMessage).ConfigureAwait(false);
         }
         /// <summary>
         /// This will broadcast a message, handling errors, and can be used asynchronously.
@@ -216,6 +207,11 @@ namespace Impostor.Commands.Core
             }
         }
 
+        public void SendMessage()
+        {
+            
+        }
+        
         #pragma warning restore
 
         /// <summary>

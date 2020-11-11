@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Net.Sockets;
@@ -88,8 +89,8 @@ namespace Impostor.Commands.Core.DashBoard
                     var cleanedPath = GetLocalPath(file, directory);
                     if (!cleanedPath.Contains("players.csv") && cleanedPath.Contains("?")) //you are angering me dima
                     {
-                        cleanedPath = cleanedPath.Remove(cleanedPath.IndexOf("?"),
-                            cleanedPath.Length - cleanedPath.IndexOf("?"));
+                        cleanedPath = cleanedPath.Remove(cleanedPath.IndexOf("?",StringComparison.InvariantCultureIgnoreCase),
+                            cleanedPath.Length - cleanedPath.IndexOf("?",StringComparison.InvariantCultureIgnoreCase));
                     }
                     //COMPARISION : If file exists, move on to the next comparision. If not, send the error.
                     if (File.Exists(cleanedPath))
@@ -119,15 +120,15 @@ namespace Impostor.Commands.Core.DashBoard
                     }
                     else
                     {
-                        if (cleanedPath.StartsWith("dashboard\\players.csv")&&cleanedPath.Length>17&&cleanedPath.Contains('?'))
+                        if (cleanedPath.Contains("players.csv")&&cleanedPath.Contains('?'))
                         {
                             var key = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1);
                             if(ApiServer.CheckKey(key))
                             {
-                                var data = Encoding.UTF8.GetBytes(Interface.CompilePlayers());
-                                WriteHeader(version, "text/csv", data.Length, " 200 OK", ref ns);
-                                ns.Write(data, 0, data.Length);
-                                data = null;
+                                var response = Encoding.UTF8.GetBytes(Interface.CompilePlayers());
+                                WriteHeader(version, "text/csv", (int)response.Length, " 200 OK", ref ns);
+                                ns.Write(response, 0, response.Length);
+                                ns.Flush();
                                 ApiServer.Push($"Players listed by: {address}, with key : {key}.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage);
                             }
                             else
@@ -155,8 +156,9 @@ namespace Impostor.Commands.Core.DashBoard
                 ns.Dispose();
                 client.Dispose();
             }
-            catch
+            catch(Exception ex)
             {
+                ApiServer.Push($"Critical unhandled error (http server) : {ex.Message}",Structures.ServerSources.DebugSystemCritical,Structures.MessageFlag.ConsoleLogMessage);
                 return;
             }
             
@@ -234,7 +236,7 @@ namespace Impostor.Commands.Core.DashBoard
         {
             var sb = new StringBuilder();
             sb.Append(httpVer + sStatusCode + "\r\n");
-            sb.Append("Server: cx1193719-b\r\n");
+            sb.Append("Server: antiHTTP\r\n");
             sb.Append("Content-Type: " + mimeType + "\r\n");
             sb.Append("Accept-Ranges: bytes\r\n");
             sb.Append("Content-Length: " + documentLen + "\r\n\r\n");
@@ -242,5 +244,6 @@ namespace Impostor.Commands.Core.DashBoard
             stream.Write(data, 0, data.Length);
             stream.Flush();
         }
+
     }
 }

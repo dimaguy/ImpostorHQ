@@ -213,12 +213,12 @@ namespace Impostor.Commands.Core
             {
                 foreach (var possibleTarget in Manager.GetPlayers())
                 {
-                    var connection = possibleTarget.Client.Connection;
+                    var connection = possibleTarget.Connection;
                     if (connection != null)
                     {
-                        if (connection.EndPoint.Address.ToString().Equals(address))
+                        if (connection.EndPoint.Address.ToString().Equals(address) && possibleTarget.Player!=null)
                         {
-                            possibleTarget.BanAsync();
+                            possibleTarget.Player.BanAsync();
                             message = "The target was also connected to a lobby. He has been kicked.";
                             break;
                         }
@@ -290,10 +290,12 @@ namespace Impostor.Commands.Core
         {
             foreach (var possibleTarget in Manager.GetPlayers())
             {
-                if (possibleTarget.Client.Connection.EndPoint.Address.Equals(addr))
+                var player = possibleTarget.Player;
+                if(player == null || player.Client.Connection==null) continue;
+                if (player.Client.Connection.EndPoint.Address.Equals(addr))
                 {
                     //we found our target!
-                    possibleTarget.BanAsync();
+                    if(possibleTarget.Player != null) possibleTarget.Player.BanAsync();
                     var report = new Structures.Report
                     {
                         Messages = new List<string>
@@ -302,15 +304,14 @@ namespace Impostor.Commands.Core
                     },
                         Sources = new List<string>
                     {
-                        dashboard.ToString()
+                        dashboard
                     },
-                        Target = possibleTarget.Client.Connection.EndPoint.Address.ToString(),
-                        TargetName = possibleTarget.Character.PlayerInfo.PlayerName,
+                        Target = player.Client.Connection.EndPoint.Address.ToString(),
+                        TargetName = player.Character.PlayerInfo.PlayerName,
 
                         MinutesRemaining = 0,
                         TotalReports = 0
                     };
-
                     AddPermBan(report);
                     return true;
                 }

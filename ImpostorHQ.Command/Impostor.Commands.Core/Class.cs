@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
+using System.Drawing;
 using Fleck;
 using System.IO;
 using System.Linq;
@@ -56,6 +58,11 @@ namespace Impostor.Commands.Core
         public GameCommandChatInterface ChatInterface { get; set; }
         public IEventManager EventManager{ get; set; }
         private ParallelOptions Options { get; set; }
+        public IClientManager ClientManager { get; set; }
+
+        //change this externally if you want to.
+        public Action<IGame, string, Structures.BroadcastType> ExternalCallback;
+        private string[] KnownColors { get; set; }
         #endregion
         /// <summary>
         /// This constructor will be 'injected' with the required references by the plugin API.
@@ -64,14 +71,16 @@ namespace Impostor.Commands.Core
         /// <param name="manager">The global event manager.</param>
         /// <param name="gameManager">The global game manager.</param>
         /// <param name="provider">A provider for MessageWriters (not used yet).</param>
-        public Class(ILogger<Class> logger, IEventManager manager, IGameManager gameManager,IMessageWriterProvider provider)
+        public Class(ILogger<Class> logger, IEventManager manager, IGameManager gameManager,IMessageWriterProvider provider,IClientManager clientManager)
         {
             this.GameManager = gameManager;
             this.Logger = logger;
             this.MessageWriterProvider = provider;
             this.EventManager = manager;
+            this.ClientManager = clientManager;
             this.Options = new ParallelOptions();
             Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
+            KnownColors = Enum.GetNames(typeof(System.Drawing.KnownColor));
         }
 
         #region Impostor low-level API members.
@@ -160,7 +169,8 @@ namespace Impostor.Commands.Core
 
             ApiServer.RegisterCommand(Structures.DashboardCommands.BansMessage,"=> will list the current permanent bans.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.HelpMessage, "=> will display the help message.");
-            ApiServer.RegisterCommand(Structures.DashboardCommands.ServerWideBroadcast," <your message here> => will send a message to all lobbies.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.ServerWideBroadcast, " <color>:<message> => will send a message to all lobbies.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.ListColors, "=> will list all the colors accepted by the /broadcast commands.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.StatusMessage,"=> will show you some general statistics about the server.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.BanIpAddress, " <ip address> => will permanently ban the IP address. The players must be connected.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.BanIpAddressBlind," <ip address> => just like the above, but the player does not need to be connected. Warning: he will not be kicked if he is connected to a game. Use the above command if that is your intention.");
@@ -240,7 +250,28 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
-                        
+                        isSingle = true; //we may get errors.
+                        if (!message.Text.Contains(':'))
+                        {
+                            ApiServer.PushTo("Invalid structure. Please use: /broadcast <color>:<message>",Structures.ServerSources.DebugSystem,Structures.MessageFlag.ConsoleLogMessage,client);
+                            break;
+                        }
+
+                        var sides = message.Text.Split(':');
+                        if (string.IsNullOrEmpty(sides[0]) || string.IsNullOrEmpty(sides[1]))
+                        {
+                            ApiServer.PushTo("Please specify a color and a message. Example: /broadcast green:Greetings to all players!", Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                            break;
+                        }
+
+                        if (!KnownColors.Contains(sides[0]))
+                        {
+                            ApiServer.PushTo("Unknown color. Please use /broadcastcolors to list all colors.", Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                            break;
+                        }
+
+
+                        isSingle = false; //no errors. That means we need to inform the user that the broadcast is running.
                         lock (GameManager.Games)
                         {
                             //we broadcast to all games.
@@ -250,13 +281,31 @@ namespace Impostor.Commands.Core
                             int index = 0;
                             foreach (var game in GameManager.Games)
                             {
-                                tasks[index] = ChatInterface.SafeAsyncBroadcast(game, message.Text,
-                                    Structures.BroadcastType.Information);
+                                var col = ParseColor(sides[0]);
+                                tasks[index] = ExternalCallback==null? 
+                                    ChatInterface.SafeAsyncBroadcast(game, col + sides[1], Structures.BroadcastType.Manual):
+                                    new Task(()=>ExternalCallback(game, sides[1], Structures.BroadcastType.Information));
                             }
                             //if this does not return, our server is not working.
-                            var t = new Thread(()=>BroadcastCallback(tasks));
+                            var t = new Thread(()=> ParallelExecuteBroadcast(tasks));
                             t.Start();
                         }
+                        break;
+                    }
+                    case Structures.DashboardCommands.ListColors:
+                    {
+                        if (!isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+
+                        string response = "Broadcast colors:\n";
+                        foreach (var color in KnownColors)
+                        {
+                            response += $"  {color}\n";
+                        }
+                        ApiServer.PushTo(response,Structures.ServerSources.SystemInfo,Structures.MessageFlag.ConsoleLogMessage,client);
                         break;
                     }
                     case Structures.DashboardCommands.HelpMessage:
@@ -463,7 +512,8 @@ namespace Impostor.Commands.Core
                         bool matches = false;
                         foreach (var player in GetPlayers())
                         {
-                            if (player.Character.PlayerInfo.PlayerName.Contains(message.Text,
+                            if (player.Player == null) continue;
+                            if (player.Player.Character.PlayerInfo.PlayerName.Contains(message.Text,
                                 StringComparison.InvariantCultureIgnoreCase))
                             {
                                 if (!matches)
@@ -471,14 +521,14 @@ namespace Impostor.Commands.Core
                                     matches = true;
                                     response.Append("\n");
                                 }
-                                response.AppendLine($"  {player.Character.PlayerInfo.PlayerName}, Address: {player.Client.Connection.EndPoint.Address}:");
-                                response.AppendLine($"      Lobby: {player.Game.Code.Code}");
-                                response.AppendLine($"      Dead: {player.Character.PlayerInfo.IsDead}");
-                                response.AppendLine($"      Impostor: {player.Character.PlayerInfo.IsImpostor}");
-                                response.AppendLine($"      Color: {(Structures.PlayerColor)player.Character.PlayerInfo.ColorId}");
-                                response.AppendLine($"      Hat: {(Structures.HatId) player.Character.PlayerInfo.HatId}");
-                                response.AppendLine($"      Pet: {(Structures.PetId) player.Character.PlayerInfo.PetId}");
-                                response.AppendLine($"      Skin: {(Structures.SkinId) player.Character.PlayerInfo.SkinId}");
+                                response.AppendLine($"  {player.Player.Character.PlayerInfo.PlayerName}, Address: {player.Player.Client.Connection.EndPoint.Address}:");
+                                response.AppendLine($"      Lobby: {player.Player.Game.Code.Code}");
+                                response.AppendLine($"      Dead: {player.Player.Character.PlayerInfo.IsDead}");
+                                response.AppendLine($"      Impostor: {player.Player.Character.PlayerInfo.IsImpostor}");
+                                response.AppendLine($"      Color: {(Structures.PlayerColor)player.Player.Character.PlayerInfo.ColorId}");
+                                response.AppendLine($"      Hat: {(Structures.HatId) player.Player.Character.PlayerInfo.HatId}");
+                                response.AppendLine($"      Pet: {(Structures.PetId) player.Player.Character.PlayerInfo.PetId}");
+                                response.AppendLine($"      Skin: {(Structures.SkinId) player.Player.Character.PlayerInfo.SkinId}");
                             }
                         }
 
@@ -522,13 +572,14 @@ namespace Impostor.Commands.Core
                 }
                 else ApiServer.PushTo("Invalid command.",Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
             }
-            catch
+            catch(Exception ex)
             {
+                ApiServer.Push($"Critical unhandled error (http server) : {ex.Message}", Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage);
                 //invalid message
             }
         }
 
-        private void BroadcastCallback(Task[] targets)
+        private void ParallelExecuteBroadcast(Task[] targets)
         {
             //this should take care of some issues.
             Parallel.ForEach(targets, Options, (broadcastTask) =>
@@ -585,32 +636,29 @@ namespace Impostor.Commands.Core
             var sb = new StringBuilder();
             foreach (var player in GetPlayers())
             {
-                if (player.Client.Connection == null) continue;
-                sb.Append(player.Character.PlayerInfo.PlayerName);
+                if ((player == null ||
+                     player.Player == null ||
+                     player.Player.Client.Connection == null ||
+                     !player.Player.Client.Connection.IsConnected ||
+                     string.IsNullOrEmpty(player.Player.Character.PlayerInfo.PlayerName))) continue;
+                sb.Append(player.Player.Character.PlayerInfo.PlayerName);
                 sb.Append(',');
-                sb.Append(player.Client.Connection.EndPoint.Address.ToString());
+                sb.Append(player.Player.Client.Connection.EndPoint.Address);
+                sb.Append(',');
+                sb.Append(player.Player.Game.Code.Code);
+                sb.Append(',');
+                sb.Append("Host: ");
+                sb.Append(player.Player.IsHost);
                 sb.Append("\r\n");
             }
-            
+
             return sb.ToString();
         }
 
-        public IEnumerable<IClientPlayer> GetPlayers()
+        public IEnumerable<IClient> GetPlayers()
         {
-            List<IClientPlayer> temporaryList = new List<IClientPlayer>();
-            lock (GameManager.Games)
-            {
-                foreach (var gameManagerGame in GameManager.Games)
-                {
-                    temporaryList.AddRange(gameManagerGame.Players);
-                }
-            }
-
-            if (temporaryList.Count > 0)
-            {
-                foreach (var player in temporaryList) yield return player;
-            }
-            else yield break;
+            var tempList = ClientManager.Clients.ToList();
+            foreach (var client in tempList) if (client != null && client.Connection != null) yield return client;
         }
         
         public bool AddApiKey(string key)
@@ -624,6 +672,7 @@ namespace Impostor.Commands.Core
             {
                 ApiServer.AddKey(key);
                 Configuration.APIKeys.Add(key);
+                Configuration.SaveTo(ConfigPath);
                 return true;
             }
         }
@@ -638,8 +687,15 @@ namespace Impostor.Commands.Core
             {
                 ApiServer.RemoveKey(key);
                 Configuration.APIKeys.Remove(key);
+                Configuration.SaveTo(ConfigPath);
                 return true;
             }
+        }
+
+        private string ParseColor(string input)
+        {
+            var c = Color.FromName(input);
+            return $"[{c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2")}FF]"; //the opacity is hardcoded, it is not needed.
         }
     }
 }
