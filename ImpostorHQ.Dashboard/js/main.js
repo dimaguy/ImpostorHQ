@@ -1,6 +1,6 @@
 "use strict";
 var connection = null;
-var firstLogin = true
+var firstLogin = true;
 var playersOnline = 0;
 var lobbies = 0;
 var cpuUsage = 0;
@@ -45,7 +45,7 @@ function connect() {
 
 	if (document.location.protocol === "https:") {
 		scheme += "s";
-	}
+	};
 
 	serverUrl = scheme + "://" + document.location.hostname + ":22023";
 
@@ -150,11 +150,10 @@ function connect() {
 		if (text.length) {
 			box.value += text;
 			box.scrollTop = box.scrollHeight;
-		}
+		};
 	};
 	console.log("***CREATED ONMESSAGE");
-
-}
+};
 
 function send() {
 	if (document.getElementById("text").value != null) {
@@ -166,8 +165,8 @@ function send() {
 		};
 		connection.send(JSON.stringify(msg));
 		document.getElementById("text").value = "";
-	}
-}
+	};
+};
 function plot() {
 	var _playerchart = new Chart(ctxPlayers, {
 		type: 'line',
@@ -308,17 +307,17 @@ function plot() {
 		},
 
 	});
-}
+};
 
 function handleSend(evt) {
 	if (evt.keyCode === 13 || evt.keyCode === 14) {
 		if (!document.getElementById("send").disabled) {
 			send();
-		}
-	}
-}
+		};
+	};
+};
 function HandleLogin(evt) {
 	if (evt.keyCode === 13 || evt.keyCode === 14) {
 		connect();
-	}
-}
+	};
+};
