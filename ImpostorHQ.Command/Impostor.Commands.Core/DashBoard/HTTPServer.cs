@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Net.Sockets;
+using Impostor.Commands.Core.SELF;
 
 namespace Impostor.Commands.Core.DashBoard
 {
@@ -50,12 +51,13 @@ namespace Impostor.Commands.Core.DashBoard
         {
             var listener = (TcpListener) ar.AsyncState;
             if (listener == null) return;
+            string address = "[BEFORE ACCEPT]";
             if(Running) listener.BeginAcceptTcpClient(EndAccept, listener);
             try
             {
                 var client = listener.EndAcceptTcpClient(ar);
                 var ns = client.GetStream();
-                var address = ((IPEndPoint) client.Client.RemoteEndPoint).Address;
+                address = (((IPEndPoint) client.Client.RemoteEndPoint).Address).ToString();
                 var startPos = 0;
                 var receiveBuffer = new byte[1024]; //should not give us trouble.
 
@@ -129,7 +131,7 @@ namespace Impostor.Commands.Core.DashBoard
                                 WriteHeader(version, "text/csv", (int)response.Length, " 200 OK", ref ns);
                                 ns.Write(response, 0, response.Length);
                                 ns.Flush();
-                                ApiServer.Push($"Players listed by: {address}, with key : {key}.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage);
+                                //ApiServer.Push($"Players listed by: {address}, with key : {key}.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage);
                             }
                             else
                             {
@@ -158,7 +160,7 @@ namespace Impostor.Commands.Core.DashBoard
             }
             catch(Exception ex)
             {
-                ApiServer.Push($"Critical unhandled error (http server) : {ex.Message}",Structures.ServerSources.DebugSystemCritical,Structures.MessageFlag.ConsoleLogMessage);
+                Interface.LogManager.LogError($"SRC: {address}: {ex.ToString()}",Shared.ErrorLocation.HttpServer);
                 return;
             }
             

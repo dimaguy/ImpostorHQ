@@ -17,6 +17,7 @@ using Impostor.Api.Net;
 using Impostor.Api.Net.Manager;
 using Microsoft.Extensions.Logging;
 using Impostor.Commands.Core.DashBoard;
+using Impostor.Commands.Core.SELF;
 
 #region Impostor API Imports
 using Impostor.Api.Games;
@@ -63,6 +64,8 @@ namespace Impostor.Commands.Core
         //change this externally if you want to.
         public Action<IGame, string, Structures.BroadcastType> ExternalCallback;
         private string[] KnownColors { get; set; }
+        //our lovely log manager!
+        public SpatiallyEfficientLogFileManager LogManager { get; private set; }
         #endregion
         /// <summary>
         /// This constructor will be 'injected' with the required references by the plugin API.
@@ -81,6 +84,7 @@ namespace Impostor.Commands.Core
             this.Options = new ParallelOptions();
             Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
             KnownColors = Enum.GetNames(typeof(System.Drawing.KnownColor));
+            this.LogManager = new SpatiallyEfficientLogFileManager("hqlogs");
         }
 
         #region Impostor low-level API members.
@@ -110,6 +114,7 @@ namespace Impostor.Commands.Core
             ApiServer.Shutdown();
             DashboardServer.Shutdown();
             Configuration.SaveTo(ConfigPath);
+            LogManager.Finish();
             return default;
         }
         #endregion
@@ -163,7 +168,7 @@ namespace Impostor.Commands.Core
             var error404Html = File.ReadAllText(Path.Combine("dashboard", "404.html"));
             var errorMimeHtml = File.ReadAllText(Path.Combine("dashboard", "mime.html"));
             //we initialize our servers and set up the events.
-            this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys.ToArray(), Logger,GameManager);
+            this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys.ToArray(), Logger,GameManager,this);
             this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml,this,ApiServer);
             ApiServer.OnMessageReceived += DashboardCommandReceived;
 
@@ -239,6 +244,15 @@ namespace Impostor.Commands.Core
                     //our command is simple.
                     cmd = message.Text;
                     isSingle = true;
+                }
+
+                if (isSingle)
+                {
+                    LogManager.LogDashboard(IPAddress.Parse(client.ConnectionInfo.ClientIpAddress),$"\"{cmd}\"");
+                }
+                else
+                {
+                    LogManager.LogDashboard(IPAddress.Parse(client.ConnectionInfo.ClientIpAddress), $"\"{cmd}\": \"{message.Text}\"");
                 }
                 switch (cmd)
                 {
@@ -574,8 +588,7 @@ namespace Impostor.Commands.Core
             }
             catch(Exception ex)
             {
-                ApiServer.Push($"Critical unhandled error (http server) : {ex.Message}", Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage);
-                //invalid message
+                LogManager.LogError(ex.ToString(),Shared.ErrorLocation.DashboardCommandHandler);
             }
         }
 

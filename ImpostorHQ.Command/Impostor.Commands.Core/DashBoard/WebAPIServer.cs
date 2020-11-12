@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Fleck;
 using Impostor.Api.Games.Managers;
+using Impostor.Commands.Core.SELF;
 using Microsoft.Extensions.Logging;
 
 namespace Impostor.Commands.Core.DashBoard
@@ -36,6 +38,7 @@ namespace Impostor.Commands.Core.DashBoard
         //  This is used to calculate the uptime.
         public DateTime StartTime { get; private set; }
         public PerformanceMonitors Counters { get; private set; }
+        private Class Master { get; set; }
         /// <summary>
         /// This will host an API server, that can be accessed with the given API keys.
         /// </summary>
@@ -43,7 +46,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="listenInterface">The interface to bind the socket to.</param>
         /// <param name="keys">The accepted API keys.</param>
         /// <param name="logger">The global logger.</param>
-        public WebApiServer(ushort port, string listenInterface,string[] keys,ILogger<Class> logger, IGameManager manager)
+        public WebApiServer(ushort port, string listenInterface,string[] keys,ILogger<Class> logger, IGameManager manager,Class masterClass)
         {
             this.StartTime = DateTime.UtcNow;
             this.Counters = new PerformanceMonitors();
@@ -69,6 +72,7 @@ namespace Impostor.Commands.Core.DashBoard
             });
             HeartbeatThread = new Thread(DoHeartbeat);
             HeartbeatThread.Start();
+            this.Master = masterClass;
         }
 
         /// <summary>
@@ -123,6 +127,7 @@ namespace Impostor.Commands.Core.DashBoard
                                 msg.Date = GetTime();
                                 msg.Type = Structures.MessageFlag.LoginApiRejected;
                                 conn.Send(JsonSerializer.Serialize(msg));
+                                Master.LogManager.LogDashboard(IPAddress.Parse(conn.ConnectionInfo.ClientIpAddress),"[CRITICAL WARN] Failed log-in attempt.");
                                 conn.Close();
                                 //we log the issue.
                                 Logger.LogWarning($"Failed log-in attempt : {conn.ConnectionInfo.ClientIpAddress} - key : {msg.Text}");
@@ -266,7 +271,7 @@ namespace Impostor.Commands.Core.DashBoard
                 else
                 {
                     //we'd like all the dashboards to know that they have been betrayed.
-                    Push($"Critical unhandled(suppressed) push error : {ex.Message}", Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage, null);
+                    Master.LogManager.LogError($"SRC : {connection.ConnectionInfo.ClientIpAddress}: " + ex.ToString(), Shared.ErrorLocation.PushTo);
                     Logger.LogError(ex.Message);
                 }
                 
@@ -294,9 +299,7 @@ namespace Impostor.Commands.Core.DashBoard
             }
             catch (Exception ex)
             {
-                Push(ex.Message, Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage,
-                    null);
-                ;
+                Master.LogManager.LogError(ex.ToString(),Shared.ErrorLocation.AsyncSend);
                 Logger.LogError(ex.Message);
             }
         }
