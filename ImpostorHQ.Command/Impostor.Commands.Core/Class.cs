@@ -84,7 +84,6 @@ namespace Impostor.Commands.Core
             this.Options = new ParallelOptions();
             Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
             KnownColors = Enum.GetNames(typeof(System.Drawing.KnownColor));
-            this.LogManager = new SpatiallyEfficientLogFileManager("hqlogs");
         }
 
         #region Impostor low-level API members.
@@ -139,12 +138,14 @@ namespace Impostor.Commands.Core
             {
                 this.Configuration = Structures.PluginConfiguration.LoadFrom(ConfigPath);
             }
+            this.LogManager = new SpatiallyEfficientLogFileManager("hqlogs");
             InitializeInterfaces();
             InitializeServers();
             
 
             HighCourt = new JusticeSystem(BanFolder,10,Logger,ChatInterface,this);
             HighCourt.OnPlayerBanned += PlayerBanned;
+
         }
 
         private void InitializeInterfaces()
@@ -252,7 +253,7 @@ namespace Impostor.Commands.Core
                 }
                 else
                 {
-                    LogManager.LogDashboard(IPAddress.Parse(client.ConnectionInfo.ClientIpAddress), $"\"{cmd}\": \"{message.Text}\"");
+                    LogManager.LogDashboard(IPAddress.Parse(client.ConnectionInfo.ClientIpAddress), $"{cmd} {message.Text}");
                 }
                 switch (cmd)
                 {

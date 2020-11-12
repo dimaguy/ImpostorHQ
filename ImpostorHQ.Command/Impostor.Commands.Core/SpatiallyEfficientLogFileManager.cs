@@ -18,7 +18,8 @@ namespace Impostor.Commands.Core
         {
             this.FolderPath = folderPath;
             Init();
-            this.Encoder = new SelfEncoder((PreviousName = CompileName()));
+            this.PreviousName = CompileName();
+            this.Encoder = new SelfEncoder(PreviousName);
         }
 
         private void Init()

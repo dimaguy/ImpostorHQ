@@ -47,6 +47,7 @@ namespace LogParser
                         case Shared.LogType.Error:
                         {
                             errorLog = Shared.ErrorLog.Deserialize(bLog);
+                            
                             csvStream.Write(CompileCsv(new string[]
                             {
                                 "Error","Thrown in " + errorLog.Location,errorLog.Message
@@ -104,6 +105,7 @@ namespace LogParser
             IOStream.Read(sizeBytes, 0, 2);
             var size = BitConverter.ToUInt16(sizeBytes,0);
             var data = new byte[size];
+            Console.WriteLine($"Size : {size}");
             IOStream.Read(data, 0, size);
             return BinaryLog.Deserialize(new MemoryStream(data), size);
         }
