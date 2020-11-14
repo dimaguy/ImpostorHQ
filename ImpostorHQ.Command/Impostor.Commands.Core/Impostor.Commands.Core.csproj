@@ -9,6 +9,7 @@
     <Optimize>false</Optimize>
     <DebugType>none</DebugType>
     <DebugSymbols>false</DebugSymbols>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

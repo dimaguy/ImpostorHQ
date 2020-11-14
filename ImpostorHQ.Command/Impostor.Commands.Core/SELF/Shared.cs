@@ -14,7 +14,7 @@ namespace Impostor.Commands.Core.SELF
 
         public enum ErrorLocation : byte
         {
-            DashboardCommandHandler = 0, HttpServer, PushTo, AsyncSend
+            DashboardCommandHandler = 0, HttpServer, PushTo, AsyncSend,AnnouncementServer
         }
         public enum RpcCalls : byte
         {

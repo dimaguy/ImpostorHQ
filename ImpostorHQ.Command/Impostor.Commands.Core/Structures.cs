@@ -66,6 +66,7 @@ namespace Impostor.Commands.Core
             public const string ListColors = "/broadcastcolors";
             public const string ListLogs = "/logs";
             public const string FetchLog = "/fetchlog";
+            public const string AnnouncementMultiCommand = "/announcement";
         }
 
         public class Exceptions

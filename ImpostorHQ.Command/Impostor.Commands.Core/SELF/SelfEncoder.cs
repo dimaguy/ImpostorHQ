@@ -9,7 +9,7 @@ namespace Impostor.Commands.Core.SELF
     {
         public FileStream IoStream { get; private set; }
         private MemoryStream EncodeStream { get; set; }
-        private object WriterLock = new object();
+        private readonly object _writerLock = new object();
         public SelfEncoder(string path)
         {
             Start(path);
@@ -26,6 +26,7 @@ namespace Impostor.Commands.Core.SELF
             EncodeStream.SetLength(0);
             EncodeStream.WriteByte(logType); 
             EncodeStream.Write(BitConverter.GetBytes(unixTimeMs), 0, 8);
+            Console.WriteLine($"Beginning write of type : {(Shared.LogType)logType}");
         }
 
         private void EndWriteLine()
@@ -34,12 +35,14 @@ namespace Impostor.Commands.Core.SELF
             IoStream.Write(EncodeStream.ToArray(), 0, (int) EncodeStream.Length); 
             EncodeStream.SetLength(0);
             IoStream.Flush(); //i know, but this will reduce the occurence of errors.
+            Console.WriteLine("Ending writes");
         }
 
         public void WriteRpcLog(int gameCode, string ipAddress,Shared.RpcCalls rpcCall, byte[] data)
         {
-            lock (WriterLock)
+            lock (_writerLock)
             {
+                if (!IoStream.CanWrite) return;
                 BeginWriteLine((byte)Shared.LogType.Rpc, GetTime());
                 EncodeStream.WriteByte((byte) rpcCall);
                 EncodeStream.Write(BitConverter.GetBytes(gameCode), 0, 4);
@@ -51,8 +54,9 @@ namespace Impostor.Commands.Core.SELF
 
         public void WriteDashboardLog(IPAddress sourceIpA, string command)
         {
-            lock (WriterLock)
+            lock (_writerLock)
             {
+                if (!IoStream.CanWrite) return;
                 BeginWriteLine((byte) Shared.LogType.Dashboard, GetTime());
                 EncodeStream.Write(sourceIpA.GetAddressBytes(), 0, 4);
                 var data = Encoding.UTF8.GetBytes(command);
@@ -63,8 +67,9 @@ namespace Impostor.Commands.Core.SELF
 
         public void WriteExceptionLog(string trace,Shared.ErrorLocation location)
         {
-            lock (WriterLock)
+            lock (_writerLock)
             {
+                if (!IoStream.CanWrite) return;
                 BeginWriteLine((byte) Shared.LogType.Error, GetTime());
                 EncodeStream.WriteByte((byte) location);
                 var data = Encoding.UTF8.GetBytes(Convert.ToBase64String(Encoding.UTF8.GetBytes(trace)));
@@ -74,13 +79,11 @@ namespace Impostor.Commands.Core.SELF
         }
         public void End()
         {
-            IoStream.Close();
+            if(IoStream.CanRead)IoStream.Close();
         }
         private ulong GetTime()
         {
             return (ulong) (DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalMilliseconds;
         }
-
-        
     }
 }

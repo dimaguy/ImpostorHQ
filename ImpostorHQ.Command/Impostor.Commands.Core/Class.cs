@@ -66,6 +66,7 @@ namespace Impostor.Commands.Core
         private string[] KnownColors { get; set; }
         //our lovely log manager!
         public SpatiallyEfficientLogFileManager LogManager { get; private set; }
+        public AnnouncementServer AnnouncementManager { get; private set; }
         #endregion
         /// <summary>
         /// This constructor will be 'injected' with the required references by the plugin API.
@@ -114,6 +115,7 @@ namespace Impostor.Commands.Core
             DashboardServer.Shutdown();
             Configuration.SaveTo(ConfigPath);
             LogManager.Finish();
+            AnnouncementManager.Shutdown();
             return default;
         }
         #endregion
@@ -171,6 +173,7 @@ namespace Impostor.Commands.Core
             //we initialize our servers and set up the events.
             this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys.ToArray(), Logger,GameManager,this);
             this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml,this,ApiServer);
+            this.AnnouncementManager = new AnnouncementServer(this,"configs");
             ApiServer.OnMessageReceived += DashboardCommandReceived;
 
             ApiServer.RegisterCommand(Structures.DashboardCommands.BansMessage,"=> will list the current permanent bans.");
@@ -188,6 +191,7 @@ namespace Impostor.Commands.Core
             ApiServer.RegisterCommand(Structures.DashboardCommands.UnBanAddress," <IP address> => this is the equivalent of deleting a ban file and reloading the bans. The said player will be unbanned from the server, if he is banned.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.ListLogs,"=> will list the logs that you can then fetch.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.FetchLog, " <file, listed by /logs> => will download the log in CSV format. They will be converted to CSV on-demand, so don't spam this command, because it will use up CPU time.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.AnnouncementMultiCommand," set <message> => will set that announcement, clear => will clear the message and delete it from the disk.");
         }
 
         private void PlayerBanned(string username, string IP)
@@ -233,14 +237,14 @@ namespace Impostor.Commands.Core
                 string cmd = string.Empty;
                 //this indicates if the command is simple (e.g /help).
                 //if it is, there should be no parameters.
-                bool isSingle = false; 
-                if(message.Text.Contains(" "))
+                bool isSingle = false;
+                if (message.Text.Contains(" "))
                 {
                     //we process the command to see if it is complex.
                     //we now separate the data.
                     cmd = new string(message.Text.Take(message.Text.IndexOf(' ')).ToArray());
                     //we now extract the data.
-                    message.Text = message.Text.Remove(0, cmd.Length+1); //remove ' '
+                    message.Text = message.Text.Remove(0, cmd.Length + 1); //remove ' '
                 }
                 else
                 {
@@ -251,12 +255,14 @@ namespace Impostor.Commands.Core
 
                 if (isSingle)
                 {
-                    LogManager.LogDashboard(IPAddress.Parse(client.ConnectionInfo.ClientIpAddress),$"\"{cmd}\"");
+                    LogManager.LogDashboard(IPAddress.Parse(client.ConnectionInfo.ClientIpAddress), $"\"{cmd}\"");
                 }
                 else
                 {
-                    LogManager.LogDashboard(IPAddress.Parse(client.ConnectionInfo.ClientIpAddress), $"{cmd} {message.Text}");
+                    LogManager.LogDashboard(IPAddress.Parse(client.ConnectionInfo.ClientIpAddress),
+                        $"{cmd} {message.Text}");
                 }
+
                 switch (cmd)
                 {
                     case Structures.DashboardCommands.ServerWideBroadcast:
@@ -267,46 +273,56 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
+
                         isSingle = true; //we may get errors.
                         if (!message.Text.Contains(':'))
                         {
-                            ApiServer.PushTo("Invalid structure. Please use: /broadcast <color>:<message>",Structures.ServerSources.DebugSystem,Structures.MessageFlag.ConsoleLogMessage,client);
+                            ApiServer.PushTo("Invalid structure. Please use: /broadcast <color>:<message>",
+                                Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
                             break;
                         }
 
                         var sides = message.Text.Split(':');
                         if (string.IsNullOrEmpty(sides[0]) || string.IsNullOrEmpty(sides[1]))
                         {
-                            ApiServer.PushTo("Please specify a color and a message. Example: /broadcast green:Greetings to all players!", Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                            ApiServer.PushTo(
+                                "Please specify a color and a message. Example: /broadcast green:Greetings to all players!",
+                                Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
                             break;
                         }
 
                         if (!KnownColors.Contains(sides[0]))
                         {
-                            ApiServer.PushTo("Unknown color. Please use /broadcastcolors to list all colors.", Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                            ApiServer.PushTo("Unknown color. Please use /broadcastcolors to list all colors.",
+                                Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
                             break;
                         }
 
 
-                        isSingle = false; //no errors. That means we need to inform the user that the broadcast is running.
+                        isSingle =
+                            false; //no errors. That means we need to inform the user that the broadcast is running.
                         lock (GameManager.Games)
                         {
                             //we broadcast to all games.
                             //to do this, we compile a list, then broadcast the message in parallel.
                             Task[] tasks = new Task[GameManager.Games.Count()];
-                            if (tasks.Length == 0) break;   //no lobbies.
+                            if (tasks.Length == 0) break; //no lobbies.
                             int index = 0;
                             foreach (var game in GameManager.Games)
                             {
                                 var col = ParseColor(sides[0]);
-                                tasks[index] = ExternalCallback==null? 
-                                    ChatInterface.SafeAsyncBroadcast(game, col + sides[1], Structures.BroadcastType.Manual):
-                                    new Task(()=>ExternalCallback(game, sides[1], Structures.BroadcastType.Information));
+                                tasks[index] = ExternalCallback == null
+                                    ? ChatInterface.SafeAsyncBroadcast(game, col + sides[1],
+                                        Structures.BroadcastType.Manual)
+                                    : new Task(() =>
+                                        ExternalCallback(game, sides[1], Structures.BroadcastType.Information));
                             }
+
                             //if this does not return, our server is not working.
-                            var t = new Thread(()=> ParallelExecuteBroadcast(tasks));
+                            var t = new Thread(() => ParallelExecuteBroadcast(tasks));
                             t.Start();
                         }
+
                         break;
                     }
                     case Structures.DashboardCommands.ListColors:
@@ -322,7 +338,9 @@ namespace Impostor.Commands.Core
                         {
                             response += $"  {color}\n";
                         }
-                        ApiServer.PushTo(response,Structures.ServerSources.SystemInfo,Structures.MessageFlag.ConsoleLogMessage,client);
+
+                        ApiServer.PushTo(response, Structures.ServerSources.SystemInfo,
+                            Structures.MessageFlag.ConsoleLogMessage, client);
                         break;
                     }
                     case Structures.DashboardCommands.HelpMessage:
@@ -340,7 +358,9 @@ namespace Impostor.Commands.Core
                         {
                             helpstr += "  " + command.Key + " " + command.Value + "\n";
                         }
-                        ApiServer.PushTo(helpstr,Structures.ServerSources.SystemInfo, Structures.MessageFlag.ConsoleLogMessage, client);
+
+                        ApiServer.PushTo(helpstr, Structures.ServerSources.SystemInfo,
+                            Structures.MessageFlag.ConsoleLogMessage, client);
                         break;
                     }
                     case Structures.DashboardCommands.StatusMessage:
@@ -350,7 +370,9 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
-                        ApiServer.PushTo("Status:\n"+CompileStatus(),Structures.ServerSources.SystemInfo, Structures.MessageFlag.ConsoleLogMessage, client);
+
+                        ApiServer.PushTo("Status:\n" + CompileStatus(), Structures.ServerSources.SystemInfo,
+                            Structures.MessageFlag.ConsoleLogMessage, client);
                         break;
                     }
                     case Structures.DashboardCommands.BansMessage:
@@ -372,8 +394,10 @@ namespace Impostor.Commands.Core
                                     response += "  IPA : " + ban.Target.ToString() + $" / {ban.TargetName}\n";
                                 }
                             }
-                            ApiServer.PushTo(response,"sysinfo", Structures.MessageFlag.ConsoleLogMessage, client);
+
+                            ApiServer.PushTo(response, "sysinfo", Structures.MessageFlag.ConsoleLogMessage, client);
                         }
+
                         break;
                     }
                     case Structures.DashboardCommands.BanIpAddress:
@@ -383,23 +407,28 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
-                        if (IPAddress.TryParse(message.Text,out IPAddress address))
+
+                        if (IPAddress.TryParse(message.Text, out IPAddress address))
                         {
                             handled = true;
                             isSingle = true;
                             if (HighCourt.BanPlayer(address, client.ConnectionInfo.ClientIpAddress))
                             {
-                                ApiServer.Push($"The target [{address}] has been banned permanently by {client.ConnectionInfo.ClientIpAddress}!","(SERVER/CRITICAL/WIDE)",Structures.MessageFlag.ConsoleLogMessage);
+                                ApiServer.Push(
+                                    $"The target [{address}] has been banned permanently by {client.ConnectionInfo.ClientIpAddress}!",
+                                    "(SERVER/CRITICAL/WIDE)", Structures.MessageFlag.ConsoleLogMessage);
                             }
                             else
                             {
-                                ApiServer.PushTo("Could not find player.",Structures.ServerSources.DebugSystem,Structures.MessageFlag.ConsoleLogMessage,client);
+                                ApiServer.PushTo("Could not find player.", Structures.ServerSources.DebugSystem,
+                                    Structures.MessageFlag.ConsoleLogMessage, client);
                             }
                         }
                         else
                         {
                             handled = false;
                         }
+
                         break;
                     }
                     case Structures.DashboardCommands.BanIpAddressBlind:
@@ -409,6 +438,7 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
+
                         if (IPAddress.TryParse(message.Text, out IPAddress address))
                         {
                             var report = new Structures.Report
@@ -428,7 +458,9 @@ namespace Impostor.Commands.Core
                             };
 
                             HighCourt.AddPermBan(report);
-                            ApiServer.Push($"The target [{address}] has been blindly banned by {client.ConnectionInfo.ClientIpAddress}!", "(SERVER/CRITICAL/WIDE)", Structures.MessageFlag.ConsoleLogMessage);
+                            ApiServer.Push(
+                                $"The target [{address}] has been blindly banned by {client.ConnectionInfo.ClientIpAddress}!",
+                                "(SERVER/CRITICAL/WIDE)", Structures.MessageFlag.ConsoleLogMessage);
                             isSingle = true;
                             handled = true;
                         }
@@ -436,6 +468,7 @@ namespace Impostor.Commands.Core
                         {
                             handled = false;
                         }
+
                         break;
                     }
                     case Structures.DashboardCommands.ListKeys:
@@ -445,6 +478,7 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
+
                         string response = "Api keys:\n";
                         lock (ApiServer.ApiKeys)
                         {
@@ -453,7 +487,9 @@ namespace Impostor.Commands.Core
                                 response += $"  \"{key}\"\n";
                             }
                         }
-                        ApiServer.PushTo(response,Structures.ServerSources.SystemInfo,Structures.MessageFlag.ConsoleLogMessage,client);
+
+                        ApiServer.PushTo(response, Structures.ServerSources.SystemInfo,
+                            Structures.MessageFlag.ConsoleLogMessage, client);
                         break;
                     }
                     case Structures.DashboardCommands.AddKey:
@@ -463,19 +499,25 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
+
                         lock (ApiServer.ApiKeys)
                         {
                             if (!AddApiKey(message.Text))
                             {
-                                ApiServer.PushTo("Cannot add key: the key already exists.",Structures.ServerSources.DebugSystem,Structures.MessageFlag.ConsoleLogMessage,client);
+                                ApiServer.PushTo("Cannot add key: the key already exists.",
+                                    Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage,
+                                    client);
                                 isSingle = true; //we inhibit it from sending 'Command executed successfully'
                             }
                             else
                             {
                                 isSingle = true; //we inhibit it from sending 'Command executed successfully'
-                                ApiServer.PushTo($"The key \"{message.Text}\" is now valid and can be used.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage,client);
+                                ApiServer.PushTo($"The key \"{message.Text}\" is now valid and can be used.",
+                                    Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage,
+                                    client);
                             }
                         }
+
                         break;
                     }
                     case Structures.DashboardCommands.DeleteKey:
@@ -485,24 +527,34 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
-                        lock(ApiServer.ApiKeys)
+
+                        lock (ApiServer.ApiKeys)
                             if (ApiServer.ApiKeys.Count == 1)
                             {
                                 isSingle = true;
-                                ApiServer.PushTo($"The key \"{message.Text}\" cannot be removed, because it is the only remaining key. In order to remove it, please add another key, then execute this command.", Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                                ApiServer.PushTo(
+                                    $"The key \"{message.Text}\" cannot be removed, because it is the only remaining key. In order to remove it, please add another key, then execute this command.",
+                                    Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage,
+                                    client);
                                 break;
                             }
+
                         if (RemoveKey(message.Text))
                         {
                             isSingle = true;
                             ApiServer.ApiKeys.Remove(message.Text);
-                            ApiServer.PushTo($"The key \"{message.Text}\" is now gone.", Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                            ApiServer.PushTo($"The key \"{message.Text}\" is now gone.",
+                                Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage,
+                                client);
                         }
                         else
                         {
                             isSingle = true;
-                            ApiServer.PushTo($"Cannot delete the key \"{message.Text}\". It is not registered.", Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                            ApiServer.PushTo($"Cannot delete the key \"{message.Text}\". It is not registered.",
+                                Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage,
+                                client);
                         }
+
                         break;
                     }
                     case Structures.DashboardCommands.ReloadBans:
@@ -512,10 +564,11 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
+
                         isSingle = false; //we need to show that it executed.
                         HighCourt.ReloadBans();
                         break;
-                        
+
                     }
                     case Structures.DashboardCommands.PlayerInfo:
                     {
@@ -524,6 +577,7 @@ namespace Impostor.Commands.Core
                             handled = false;
                             break;
                         }
+
                         StringBuilder response = new StringBuilder();
                         response.Append("Players matching request: ");
                         bool matches = false;
@@ -538,19 +592,26 @@ namespace Impostor.Commands.Core
                                     matches = true;
                                     response.Append("\n");
                                 }
-                                response.AppendLine($"  {player.Player.Character.PlayerInfo.PlayerName}, Address: {player.Player.Client.Connection.EndPoint.Address}:");
+
+                                response.AppendLine(
+                                    $"  {player.Player.Character.PlayerInfo.PlayerName}, Address: {player.Player.Client.Connection.EndPoint.Address}:");
                                 response.AppendLine($"      Lobby: {player.Player.Game.Code.Code}");
                                 response.AppendLine($"      Dead: {player.Player.Character.PlayerInfo.IsDead}");
                                 response.AppendLine($"      Impostor: {player.Player.Character.PlayerInfo.IsImpostor}");
-                                response.AppendLine($"      Color: {(Structures.PlayerColor)player.Player.Character.PlayerInfo.ColorId}");
-                                response.AppendLine($"      Hat: {(Structures.HatId) player.Player.Character.PlayerInfo.HatId}");
-                                response.AppendLine($"      Pet: {(Structures.PetId) player.Player.Character.PlayerInfo.PetId}");
-                                response.AppendLine($"      Skin: {(Structures.SkinId) player.Player.Character.PlayerInfo.SkinId}");
+                                response.AppendLine(
+                                    $"      Color: {(Structures.PlayerColor) player.Player.Character.PlayerInfo.ColorId}");
+                                response.AppendLine(
+                                    $"      Hat: {(Structures.HatId) player.Player.Character.PlayerInfo.HatId}");
+                                response.AppendLine(
+                                    $"      Pet: {(Structures.PetId) player.Player.Character.PlayerInfo.PetId}");
+                                response.AppendLine(
+                                    $"      Skin: {(Structures.SkinId) player.Player.Character.PlayerInfo.SkinId}");
                             }
                         }
 
                         if (!matches) response.Append("No matches.");
-                        ApiServer.PushTo(response.ToString(),Structures.ServerSources.SystemInfo,Structures.MessageFlag.ConsoleLogMessage,client);
+                        ApiServer.PushTo(response.ToString(), Structures.ServerSources.SystemInfo,
+                            Structures.MessageFlag.ConsoleLogMessage, client);
                         isSingle = true;
                         break;
                     }
@@ -565,14 +626,20 @@ namespace Impostor.Commands.Core
                         isSingle = true;
                         if (HighCourt.RemoveBan(message.Text))
                         {
-                            ApiServer.PushTo($"The target player has been unbanned.", Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage, client);
-                            ApiServer.Push($"A player with the IP address [{message.Text}] has been unbanned by {client.ConnectionInfo.ClientIpAddress}.", Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage);
+                            ApiServer.PushTo($"The target player has been unbanned.",
+                                Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage,
+                                client);
+                            ApiServer.Push(
+                                $"A player with the IP address [{message.Text}] has been unbanned by {client.ConnectionInfo.ClientIpAddress}.",
+                                Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage);
 
                         }
                         else
                         {
-                            ApiServer.PushTo($"Error: the target player [{message.Text}] is not banned.", Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                            ApiServer.PushTo($"Error: the target player [{message.Text}] is not banned.",
+                                Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
                         }
+
                         break;
                     }
                     case Structures.DashboardCommands.ListLogs:
@@ -586,8 +653,10 @@ namespace Impostor.Commands.Core
                         isSingle = true;
                         var logs = LogManager.GetLogNames();
                         if (logs == null || logs.Length == 0)
-                        {  
-                            ApiServer.PushTo("There are no logs, which might be a server error.",Structures.ServerSources.DebugSystemCritical,Structures.MessageFlag.ConsoleLogMessage,client);
+                        {
+                            ApiServer.PushTo("There are no logs, which might be a server error.",
+                                Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage,
+                                client);
                             break;
                         }
                         else
@@ -597,8 +666,11 @@ namespace Impostor.Commands.Core
                             {
                                 response += Path.GetFileNameWithoutExtension(log) + '\n';
                             }
-                            ApiServer.PushTo(response, Structures.ServerSources.SystemInfo, Structures.MessageFlag.ConsoleLogMessage, client);
+
+                            ApiServer.PushTo(response, Structures.ServerSources.SystemInfo,
+                                Structures.MessageFlag.ConsoleLogMessage, client);
                         }
+
                         break;
                     }
                     case Structures.DashboardCommands.FetchLog:
@@ -611,20 +683,56 @@ namespace Impostor.Commands.Core
 
                         isSingle = true;
                         var logs = LogManager.GetLogNames();
-                        var log = message.Text + ".self";
+                        var log = Path.Combine("hqlogs", message.Text + ".self");
+
                         if (!logs.Contains(log))
                         {
-                            ApiServer.PushTo("","",Structures.MessageFlag.FetchLogs,client,new float[]{0});
+                            ApiServer.PushTo("", "", Structures.MessageFlag.FetchLogs, client, new float[] {0});
                         }
                         else
                         {
-                            ApiServer.PushTo("", "", Structures.MessageFlag.FetchLogs, client, new float[] {1});
+                            ApiServer.PushTo(message.Text + ".csv", "", Structures.MessageFlag.FetchLogs, client,
+                                new float[] {1});
                         }
+
                         break;
+                    }
+                    case Structures.DashboardCommands.AnnouncementMultiCommand:
+                    {
+                        if (isSingle)
+                        {
+                            isSingle = true;
+                            ApiServer.PushTo("Invalid syntax. Please use \"/announcement <action> (SET/CLEAR)\"!",
+                                Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                            break;
+                        }
+
+                        if (message.Text.StartsWith("clear"))
+                        {
+                            isSingle = false; //inform that it was executed.
+                            AnnouncementManager.DisableAnnouncement();
+                            break;
+                        }
+                        else if (message.Text.StartsWith("set "))
+                        {
+                            message.Text = message.Text.Replace("set ", "");
+                            isSingle = true;
+                            AnnouncementManager.SetMessage(message.Text);
+                            ApiServer.PushTo($"The announcement has been set: \"{message.Text}\"!",
+                                Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                        }
+                        else
+                        {
+                            handled = false;
+                        }
+
+                        break;
+
                     }
                     default:
                         //a command that is not implemented or is invalid.
-                        Logger.LogWarning($"{client.ConnectionInfo.ClientIpAddress} tried to execute an invalid command.");
+                        Logger.LogWarning(
+                            $"{client.ConnectionInfo.ClientIpAddress} tried to execute an invalid command.");
                         handled = false;
                         break;
                 }
@@ -632,13 +740,21 @@ namespace Impostor.Commands.Core
                 if (handled)
                 {
                     //we don't need to inform that the command was executed, if it is a command that returns data (like /help)
-                    if (!isSingle) ApiServer.PushTo("Command executed successfully.", "cmdsys", Structures.MessageFlag.ConsoleLogMessage, client);
+                    if (!isSingle)
+                        ApiServer.PushTo("Command executed successfully.", "cmdsys",
+                            Structures.MessageFlag.ConsoleLogMessage, client);
                 }
-                else ApiServer.PushTo("Invalid command.",Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                else
+                    ApiServer.PushTo("Invalid command.", Structures.ServerSources.DebugSystem,
+                        Structures.MessageFlag.ConsoleLogMessage, client);
+            }
+            catch (ArgumentOutOfRangeException)
+            {
+
             }
             catch(Exception ex)
             {
-                LogManager.LogError(ex.ToString(),Shared.ErrorLocation.DashboardCommandHandler);
+                LogManager.LogError(ex.ToString(), Shared.ErrorLocation.DashboardCommandHandler);
             }
         }
 
@@ -650,6 +766,7 @@ namespace Impostor.Commands.Core
                 Task.Run(()=>broadcastTask);
             });
         }
+
         /// <summary>
         /// We use this function to construct a response to the status request.
         /// </summary>
@@ -690,6 +807,7 @@ namespace Impostor.Commands.Core
                 return sb.ToString();
             }
         }
+
         /// <summary>
         /// This is used to get all the players connected to the server.
         /// </summary>

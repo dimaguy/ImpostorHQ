@@ -144,7 +144,7 @@ namespace Impostor.Commands.Core.DashBoard
                             }
 
                         }
-                        else if (cleanedPath.Contains("logs") && cleanedPath.Contains('?'))
+                        else if (cleanedPath.Contains("logs.csv") && cleanedPath.Contains('?'))
                         {
                             var requestData = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1).Split('&');
                             if (requestData.Length == 2 && !string.IsNullOrEmpty(requestData[0])&& !string.IsNullOrEmpty(requestData[1]))
@@ -208,8 +208,8 @@ namespace Impostor.Commands.Core.DashBoard
             }
             catch(Exception ex)
             {
-                Interface.LogManager.LogError($"SRC: {address}: {ex.ToString()}",Shared.ErrorLocation.HttpServer);
-                return;
+                //                  *shutting down
+                if(!address.Equals("[BEFORE ACCEPT]")) Interface.LogManager.LogError($"SRC: {address}: {ex.ToString()}", Shared.ErrorLocation.HttpServer);
             }
             
         }
