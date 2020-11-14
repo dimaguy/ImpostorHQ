@@ -24,7 +24,8 @@ const MessageFlags =
 	ConsoleCommand: "4",       // A command sent from the dashboard to the API.
 	HeartbeatMessage: "5",     // Quick sanity check with some statistics
 	GameListMessage: "6",      // Not implemented yet.
-	DoKickOrDisconnect: "7"    // A message when a client is kicked or the server shuts down.
+	DoKickOrDisconnect: "7",   // A message when a client is kicked or the server shuts down.
+	FetchLogs: "8"             //A specialized message. Should be true or false telling whether there is such requested log file or not.
 }
 
 window.onload = onload();
@@ -134,6 +135,17 @@ function connect() {
 				ramUsage = tokens[4];
 				console.log("HEARTBEAT");
 				break;
+
+			case MessageFlags.FetchLogs:
+				if (message.Flags[0] == 0) {
+					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Error fetching log: File does not exist" + "\n";
+				}
+				if (message.Flags[0] == 1) {
+					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Success fetching log: Opening it..." + "\n";
+					openInNewTab(document.location.host + "/logs?" + apikey + "&" + msg.Text)
+				}
+				break;
+
 
 			//	commented out for now, but could be used to transmit game room list
 			//      case "userlist":
@@ -321,3 +333,7 @@ function HandleLogin(evt) {
 		connect();
 	};
 };
+function openInNewTab(url) {
+	var win = window.open(url, '_blank');
+	win.focus();
+}
