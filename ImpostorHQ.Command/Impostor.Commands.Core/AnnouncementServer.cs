@@ -67,30 +67,29 @@ namespace Impostor.Commands.Core
         }
         private void Listener_NewConnection(NewConnectionEventArgs obj)
         {
-            Console.WriteLine("New connection!");
             try
             {
                 if (!WillSend)
                 {
-                    Console.WriteLine("Will not send!");
                     obj.Connection.Dispose();
                     return;
                 }
                 lock (Message)
                 {
                     obj.Connection.Send(Message);
-                    Console.WriteLine("sent!");
-                    Console.WriteLine(BitConverter.ToString(Message.ToByteArray(true)));
-                    //obj.Connection.Dispose();
+                    obj.Connection.Dispose();
                 }
             }
             catch (Exception e)
             {
                 Master.LogManager.LogError(e.ToString(),Shared.ErrorLocation.AnnouncementServer);
             }
-            
         }
 
+        /// <summary>
+        /// Will get a suitable ID for the announcement. This is vital to ensure that the message is displayed.
+        /// </summary>
+        /// <returns></returns>
         private int AnnouncementId()
         {
             lock (_writeLock)

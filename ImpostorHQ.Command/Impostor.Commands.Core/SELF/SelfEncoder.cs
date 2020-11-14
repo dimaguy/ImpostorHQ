@@ -26,7 +26,6 @@ namespace Impostor.Commands.Core.SELF
             EncodeStream.SetLength(0);
             EncodeStream.WriteByte(logType); 
             EncodeStream.Write(BitConverter.GetBytes(unixTimeMs), 0, 8);
-            Console.WriteLine($"Beginning write of type : {(Shared.LogType)logType}");
         }
 
         private void EndWriteLine()
@@ -35,7 +34,6 @@ namespace Impostor.Commands.Core.SELF
             IoStream.Write(EncodeStream.ToArray(), 0, (int) EncodeStream.Length); 
             EncodeStream.SetLength(0);
             IoStream.Flush(); //i know, but this will reduce the occurence of errors.
-            Console.WriteLine("Ending writes");
         }
 
         public void WriteRpcLog(int gameCode, string ipAddress,Shared.RpcCalls rpcCall, byte[] data)

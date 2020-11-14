@@ -702,7 +702,7 @@ namespace Impostor.Commands.Core
                         if (isSingle)
                         {
                             isSingle = true;
-                            ApiServer.PushTo("Invalid syntax. Please use \"/announcement <action> (SET/CLEAR)\"!",
+                            ApiServer.PushTo("Invalid syntax. Please use \"/announcement <action> (set ... /clear).\"! Example: \"/announcement set Greetings to all!\"",
                                 Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
                             break;
                         }
