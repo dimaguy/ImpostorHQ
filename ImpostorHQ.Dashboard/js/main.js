@@ -144,8 +144,8 @@ function connect() {
 					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Error fetching log: File does not exist" + "\n";
 				}
 				if (msg.Flags[0] == 1) {
-					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Success fetching log: Opening it..." + "\n";
-					openInNewTab(document.location.scheme + document.location.host + "/logs?" + document.getElementById("apikey").value + "&" + msg.Text)
+					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Success fetching log: Opening it... (You may want to accept window pop-ups permission)" + "\n";
+					openInNewTab(document.location.protocol + document.location.host + "/logs?" + document.getElementById("apikey").value + "&" + msg.Text)
 				}
 				break;
 
