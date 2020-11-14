@@ -33,6 +33,7 @@ const MessageFlags =
 
 window.onload = onload();
 function onload() {
+	document.getElementById("chatbox").value = "";
 	var autoapi = window.location.href.match(/\?apikey=(.*)/);
 	if (autoapi != null) {
 	document.getElementById("apikey").value = autoapi[1];
@@ -141,11 +142,13 @@ function connect() {
 
 			case MessageFlags.FetchLogs:
 				if (msg.Flags[0] == 0) {
-					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Error fetching log: File does not exist" + "\n";
+					box.value = "(" + timeStr + ") [" + "Logs" + "] : " + "Error fetching log: File does not exist" + "\n";
+					box.scrollTop = box.scrollHeight;
 				}
 				if (msg.Flags[0] == 1) {
-					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Success fetching log: Opening it... (You may want to accept window pop-ups permission)" + "\n";
-					openInNewTab(document.location.protocol + document.location.host + "/logs?" + document.getElementById("apikey").value + "&" + msg.Text)
+					box.value += "(" + timeStr + ") [" + "Logs" + "] : " + "Success fetching log: Opening it... (You may want to accept window pop-ups permission)" + "\n";
+					box.scrollTop = box.scrollHeight;
+					openInNewTab(document.location.protocol + document.location.host + "/logs.csv?" + document.getElementById("apikey").value + "&" + msg.Text)
 				}
 				break;
 
