@@ -13,7 +13,7 @@ namespace Impostor.Commands.Core
         public string FolderPath { get; set; }
         private string PreviousName { get; set; }
         private SelfEncoder Encoder { get; set; }
-        private object FileLock = new object();
+        public readonly object FileLock = new object();
         public SpatiallyEfficientLogFileManager(string folderPath)
         {
             this.FolderPath = folderPath;
@@ -62,6 +62,11 @@ namespace Impostor.Commands.Core
         public void Finish()
         {
             Encoder.End();
+        }
+
+        public string[] GetLogNames()
+        {
+            return Directory.GetFiles(FolderPath);
         }
     }
 }
