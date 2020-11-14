@@ -5,6 +5,9 @@ var playersOnline = 0;
 var lobbies = 0;
 var cpuUsage = 0;
 var ramUsage = 0;
+var _playerchart = null;
+var _cpuchart = null;
+var _ramchart = null;
 
 var playerChart = document.getElementById('playerChart');
 var ctxPlayers = playerChart.getContext('2d');
@@ -142,7 +145,7 @@ function connect() {
 				}
 				if (msg.Flags[0] == 1) {
 					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Success fetching log: Opening it..." + "\n";
-					openInNewTab(document.location.host + "/logs?" + apikey + "&" + msg.Text)
+					openInNewTab(document.location.host + "/logs?" + document.getElementById("apikey").value + "&" + msg.Text)
 				}
 				break;
 
@@ -180,7 +183,7 @@ function send() {
 	};
 };
 function plot() {
-	var _playerchart = new Chart(ctxPlayers, {
+	_playerchart = new Chart(ctxPlayers, {
 		type: 'line',
 		data: {
 
@@ -233,7 +236,7 @@ function plot() {
 		},
 
 	});
-	var _cpuchart = new Chart(ctxCpu, {
+	_cpuchart = new Chart(ctxCpu, {
 		type: 'line',
 		data: {
 
@@ -276,7 +279,7 @@ function plot() {
 		},
 
 	});
-	var _ramchart = new Chart(ctxRam, {
+	_ramchart = new Chart(ctxRam, {
 		type: 'line',
 		data: {
 
