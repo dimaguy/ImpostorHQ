@@ -137,10 +137,10 @@ function connect() {
 				break;
 
 			case MessageFlags.FetchLogs:
-				if (message.Flags[0] == 0) {
+				if (msg.Flags[0] == 0) {
 					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Error fetching log: File does not exist" + "\n";
 				}
-				if (message.Flags[0] == 1) {
+				if (msg.Flags[0] == 1) {
 					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Success fetching log: Opening it..." + "\n";
 					openInNewTab(document.location.host + "/logs?" + apikey + "&" + msg.Text)
 				}
