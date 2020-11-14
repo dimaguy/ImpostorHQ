@@ -148,7 +148,7 @@ function connect() {
 				if (msg.Flags[0] == 1) {
 					box.value += "(" + timeStr + ") [" + "Logs" + "] : " + "Success fetching log: Opening it... (You may want to accept window pop-ups permission)" + "\n";
 					box.scrollTop = box.scrollHeight;
-					openInNewTab(document.location.protocol + document.location.host + "/logs.csv?" + document.getElementById("apikey").value + "&" + msg.Text)
+					openInNewTab(document.location.origin + "/logs.csv?" + document.getElementById("apikey").value + "&" + msg.Text)
 				}
 				break;
 
