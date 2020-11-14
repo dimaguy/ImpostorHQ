@@ -244,7 +244,8 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="name">The name of the system.</param>
         /// <param name="type">The message type.</param>
         /// <param name="connection">The target.</param>
-        public void PushTo(string message, string name, string type, IWebSocketConnection connection)
+        /// /<param name="flags">Optional message data.</param>
+        public void PushTo(string message, string name, string type,IWebSocketConnection connection, float[] flags = null)
         {
             try
             {
@@ -253,7 +254,8 @@ namespace Impostor.Commands.Core.DashBoard
                     Type = type,
                     Name = name,
                     Text = message,
-                    Date = GetTime()
+                    Date = GetTime(),
+                    Flags = flags
                 };
                 connection.Send(JsonSerializer.Serialize(msg));
             }

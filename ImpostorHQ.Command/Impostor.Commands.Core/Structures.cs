@@ -19,9 +19,10 @@ namespace Impostor.Commands.Core
             public const string LoginApiRejected = "2";     // The API key is incorrect, so the login is rejected.
             public const string ConsoleLogMessage = "3";    // The only working text message, so far.
             public const string ConsoleCommand = "4";       // A command sent from the dashboard to the API.
-            public const string HeartbeatMessage = "5";     // Not implemented yet.
-            public const string GameListMessage = "6";      // Not implemented yet.
+            public const string HeartbeatMessage = "5";     // Data for the graphs.
+            public const string GameListMessage = "6";      // A relic of the past.
             public const string DoKickOrDisconnect = "7";   // A message when a client is kicked (not implemented) or the server shuts down.
+            public const string FetchLogs = "8";            // A specialized message. This is only server sided, and will indicate that a log file exists or not.
         }
         [Serializable]
         public class BaseMessage
@@ -63,6 +64,8 @@ namespace Impostor.Commands.Core
             public const string PlayerInfo = "/playerinfo";
             public const string UnBanAddress = "/unbanip";
             public const string ListColors = "/broadcastcolors";
+            public const string ListLogs = "/logs";
+            public const string FetchLog = "/fetchlog";
         }
 
         public class Exceptions
@@ -260,7 +263,6 @@ namespace Impostor.Commands.Core
             Winter = 0x0e,
             Archae = 0x0f
         }
-
         public enum RpcCalls : byte
         {
             PlayAnimation = 0,

@@ -186,6 +186,8 @@ namespace Impostor.Commands.Core
             ApiServer.RegisterCommand(Structures.DashboardCommands.ReloadBans,"=> this will reload the bans from the disk. This can be useful if you need to remove a ban, and don't want to restart the server. To do that, just delete the ban from the disk and execute this command.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.PlayerInfo," <username> => this will show information about a player.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.UnBanAddress," <IP address> => this is the equivalent of deleting a ban file and reloading the bans. The said player will be unbanned from the server, if he is banned.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.ListLogs,"=> will list the logs that you can then fetch.");
+            ApiServer.RegisterCommand(Structures.DashboardCommands.FetchLog, " <file, listed by /logs> => will download the log in CSV format. They will be converted to CSV on-demand, so don't spam this command, because it will use up CPU time.");
         }
 
         private void PlayerBanned(string username, string IP)
@@ -570,6 +572,53 @@ namespace Impostor.Commands.Core
                         else
                         {
                             ApiServer.PushTo($"Error: the target player [{message.Text}] is not banned.", Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
+                        }
+                        break;
+                    }
+                    case Structures.DashboardCommands.ListLogs:
+                    {
+                        if (!isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+
+                        isSingle = true;
+                        var logs = LogManager.GetLogNames();
+                        if (logs == null || logs.Length == 0)
+                        {  
+                            ApiServer.PushTo("There are no logs, which might be a server error.",Structures.ServerSources.DebugSystemCritical,Structures.MessageFlag.ConsoleLogMessage,client);
+                            break;
+                        }
+                        else
+                        {
+                            var response = "Log dates:\n";
+                            foreach (var log in logs)
+                            {
+                                response += Path.GetFileNameWithoutExtension(log) + '\n';
+                            }
+                            ApiServer.PushTo(response, Structures.ServerSources.SystemInfo, Structures.MessageFlag.ConsoleLogMessage, client);
+                        }
+                        break;
+                    }
+                    case Structures.DashboardCommands.FetchLog:
+                    {
+                        if (isSingle)
+                        {
+                            handled = false;
+                            break;
+                        }
+
+                        isSingle = true;
+                        var logs = LogManager.GetLogNames();
+                        var log = message.Text + ".self";
+                        if (!logs.Contains(log))
+                        {
+                            ApiServer.PushTo("","",Structures.MessageFlag.FetchLogs,client,new float[]{0});
+                        }
+                        else
+                        {
+                            ApiServer.PushTo("", "", Structures.MessageFlag.FetchLogs, client, new float[] {1});
                         }
                         break;
                     }

@@ -20,6 +20,7 @@ namespace Impostor.Commands.Core.DashBoard
         //  indicates whether or not we should continue accepting clients.
         public bool Running { get; private set; }
         private WebApiServer ApiServer { get; set; }
+        private CsvComposer LogComposer { get; set; }
         /// <summary>
         /// Creates a new instance of our HTTP server. This is used to inject the HTML client into browsers.
         /// </summary>
@@ -38,6 +39,7 @@ namespace Impostor.Commands.Core.DashBoard
             this.Interface = Interface;
             this.Listener = new TcpListener(IPAddress.Parse(listenInterface),port);
             this.ApiServer = apiServer;
+            this.LogComposer = new CsvComposer();
             Listener.Start();
             //we begin listening and accepting clients.
             Listener.BeginAcceptTcpClient(EndAccept, Listener);
@@ -89,7 +91,7 @@ namespace Impostor.Commands.Core.DashBoard
                 if (!directory.Contains("..")) //   Only root ('/') is allowed.
                 {
                     var cleanedPath = GetLocalPath(file, directory);
-                    if (!cleanedPath.Contains("players.csv") && cleanedPath.Contains("?")) //you are angering me dima
+                    if (!(cleanedPath.Contains("players.csv")||cleanedPath.Contains("logs")) && cleanedPath.Contains("?")) //you are angering me dima
                     {
                         cleanedPath = cleanedPath.Remove(cleanedPath.IndexOf("?",StringComparison.InvariantCultureIgnoreCase),
                             cleanedPath.Length - cleanedPath.IndexOf("?",StringComparison.InvariantCultureIgnoreCase));
@@ -136,10 +138,56 @@ namespace Impostor.Commands.Core.DashBoard
                             else
                             {
                                 var data = Encoding.UTF8.GetBytes(
-                                    "<h1>You have entered an invalid key. Your IP Address will be broadcast to all admins, for that. Please stop trying to break into our system!</h1>");
+                                    "<h1>You have entered an invalid key. Please stop trying to break into our system!</h1>");
                                 WriteHeader(version, "text/html", data.Length, " 200 OK", ref ns);
-                                ApiServer.Push($"Critical: {address} tried to list players with an invalid API key.",Structures.ServerSources.DebugSystemCritical,Structures.MessageFlag.ConsoleLogMessage);
                                 ns.Write(data,0,data.Length);
+                            }
+
+                        }
+                        else if (cleanedPath.Contains("logs") && cleanedPath.Contains('?'))
+                        {
+                            var requestData = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1).Split('&');
+                            if (requestData.Length == 2 && !string.IsNullOrEmpty(requestData[0])&& !string.IsNullOrEmpty(requestData[1]))
+                            {
+                                var key = requestData[0];
+                                if (!ApiServer.CheckKey(key))
+                                {
+                                    var data = Encoding.UTF8.GetBytes(
+                                        "<h1>You have entered an invalid key. Please stop trying to break into our system!</h1>");
+                                    WriteHeader(version, "text/html", data.Length, " 200 OK", ref ns);
+                                    ns.Write(data, 0, data.Length);
+                                }
+                                else
+                                {
+                                    var requestedLog = Path.Combine("hqlogs", Path.GetFileNameWithoutExtension(requestData[1]) + ".self");
+                                    var logs = Interface.LogManager.GetLogNames();
+                                    if (!logs.Contains(requestedLog))
+                                    {
+                                        var data = Encoding.UTF8.GetBytes(
+                                            "<h1>Could not find the logs you requested.</h1>");
+                                        WriteHeader(version, "text/html", data.Length, " 404 Not Found", ref ns);
+                                        ns.Write(data, 0, data.Length);
+                                    }
+                                    else
+                                    {
+                                        byte[] data;
+                                        using (FileStream fs = new FileStream(requestedLog, FileMode.Open,
+                                            FileAccess.Read, FileShare.ReadWrite))
+                                        {
+                                            //we don't want to read while it is writing.
+                                            lock (Interface.LogManager.FileLock)
+                                            {
+                                                data = new byte[fs.Length];
+                                                fs.Read(data, 0, (int)fs.Length);
+                                            }
+                                        }
+                                        //i am not doing it directly off the stream so i don't lock the manager for too long...
+                                        //should not be a problem, logs will be quite small.
+                                        var logData = GetCsv(data);
+                                        WriteHeader(version, "text/csv", logData.Length, " 200 OK", ref ns);
+                                        ns.Write(logData, 0, logData.Length);
+                                    }
+                                }
                             }
 
                         }
@@ -221,7 +269,10 @@ namespace Impostor.Commands.Core.DashBoard
         /// <summary>
         /// Used to shut down the HTTP server.
         /// </summary>
-        
+        private byte[] GetCsv(byte[] data)
+        {
+            return Encoding.UTF8.GetBytes(LogComposer.Compose(data));
+        }
         public void Shutdown()
         {
             this.Running = false;
