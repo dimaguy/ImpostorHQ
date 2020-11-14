@@ -145,7 +145,7 @@ function connect() {
 				}
 				if (msg.Flags[0] == 1) {
 					text = "(" + timeStr + ") [" + "Logs" + "] : " + "Success fetching log: Opening it..." + "\n";
-					openInNewTab(document.location.host + "/logs?" + document.getElementById("apikey").value + "&" + msg.Text)
+					openInNewTab(document.location.scheme + document.location.host + "/logs?" + document.getElementById("apikey").value + "&" + msg.Text)
 				}
 				break;
 
