@@ -28,7 +28,7 @@ using Impostor.Api.Events.Managers;
 
 namespace Impostor.Commands.Core
 {
-    [ImpostorPlugin("ImpostorHQ","Impostor HeadQuarters API","anti, Dimaguy","0.0.1 dev")]
+    [ImpostorPlugin("ImpostorHQ","Impostor HeadQuarters API","anti, Dimaguy","0.0.4 beta")]
     public class Class : PluginBase
     {
         #region Members
@@ -173,6 +173,7 @@ namespace Impostor.Commands.Core
             //we initialize our servers and set up the events.
             this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys.ToArray(), Logger,GameManager,this);
             this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml,this,ApiServer);
+            Logger.LogInformation($"ImpostorHQ : API Server listening on: {Configuration.ListenInterface}:{Configuration.APIPort}. Dashboard listening on: {Configuration.ListenInterface}:{Configuration.WebsitePort}/client.html");
             this.AnnouncementManager = new AnnouncementServer(this,"configs");
             ApiServer.OnMessageReceived += DashboardCommandReceived;
 

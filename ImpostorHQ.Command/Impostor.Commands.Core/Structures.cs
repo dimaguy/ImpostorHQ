@@ -103,7 +103,7 @@ namespace Impostor.Commands.Core
                 cfg.UseSSL = false;
                 cfg.APIKeys = new List<string>() { Guid.NewGuid().ToString() };
                 cfg.APIPort = 22023;
-                cfg.WebsitePort = 8080;
+                cfg.WebsitePort = 22024;
                 cfg.ListenInterface = "0.0.0.0";
                 #endregion
                 return cfg;
