@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using Impostor.Api.Net.Messages;
@@ -13,6 +14,7 @@ namespace Impostor.Commands.Core
     public class AnnouncementServer
     {
         public MessageWriter Message { get; private set; }
+        public MessageWriter DisconnectMessage { get; set; }
         public UdpConnectionListener Listener { get; private set; }
         public Class Master { get; private set; }
         public bool WillSend { get; private set; }
@@ -27,6 +29,8 @@ namespace Impostor.Commands.Core
             this.Listener.NewConnection += Listener_NewConnection;
             this.Master = master;
             this.Message = MessageWriter.Get(SendOption.Reliable);
+            this.DisconnectMessage = MessageWriter.Get(SendOption.Reliable);
+            DisconnectMessage.Write((byte)09);
             this.ConfigPath = Path.Combine(configFolder, "announcement.id");
             this.ReadBuffer = new byte[4];
             if (!File.Exists(ConfigPath))
@@ -77,8 +81,9 @@ namespace Impostor.Commands.Core
                 lock (Message)
                 {
                     obj.Connection.Send(Message);
-                    obj.Connection.Dispose();
                 }
+                obj.Connection.Send(DisconnectMessage);
+                obj.Connection.Dispose();
             }
             catch (Exception e)
             {
