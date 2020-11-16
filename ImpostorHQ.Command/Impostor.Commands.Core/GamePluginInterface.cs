@@ -48,11 +48,6 @@ namespace Impostor.Commands.Core
         {
             OnPlayerSpawnedFirst?.Invoke(evt);
         }
-        public static class CommandPrefixes
-        {
-            public const string TestCommand = "/test";
-            public const string ReportCommand = "/report";
-        }
         public delegate void DelPlayerCommandReceived(string command, string data, IPlayerChatEvent source);
         public delegate void DelPlayerSpawned(IPlayerSpawnedEvent evg);
 

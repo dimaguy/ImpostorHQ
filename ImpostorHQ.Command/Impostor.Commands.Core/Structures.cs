@@ -4,14 +4,12 @@ using System.IO;
 using System.Text;
 using System.Text.Json;
 using Impostor.Api.Net.Messages;
+using Microsoft.Extensions.Configuration;
 
 namespace Impostor.Commands.Core
 {
     public class Structures
     {
-        /// <summary>
-        /// 
-        /// </summary>
         public static class MessageFlag
         {
             public const string LoginApiRequest = "0";      // A request to log in, with a given API key.
@@ -69,6 +67,15 @@ namespace Impostor.Commands.Core
             public const string AnnouncementMultiCommand = "/announcement";
         }
 
+        public static class PlayerCommands
+        {
+            public const string MapChange = "/map";
+            public const string ImpostorChange = "/impostors";
+            public const string MaxPlayersChange = "/players";
+            public const string ReportCommand = "/report";
+
+        }
+
         public class Exceptions
         {
             public class PlayerNullException : Exception
@@ -118,6 +125,36 @@ namespace Impostor.Commands.Core
             public static PluginConfiguration LoadFrom(string path)
             {
                 return JsonSerializer.Deserialize<PluginConfiguration>(File.ReadAllText(path));
+            }
+        }
+
+        public class PlayerCommandConfiguration
+        {
+            public bool EnableMapChange { get; set; }
+            public bool EnableImpostorChange { get; set; }
+            public bool EnableMaxPlayersChange { get; set; }
+            public bool EnableReportCommand { get; set; }
+            public ushort ReportsRequiredForBan { get; set; }
+
+            public static PlayerCommandConfiguration GetDefaultConfig()
+            {
+                return new PlayerCommandConfiguration() {
+                    EnableMapChange = true,
+                    EnableImpostorChange = true,
+                    EnableMaxPlayersChange = true,
+                    EnableReportCommand = false,
+                    ReportsRequiredForBan = 10
+                };
+            }
+            public void SaveTo(string path)
+            {
+                if (File.Exists(path)) File.Delete(path);
+                File.WriteAllText(path, JsonSerializer.Serialize<PlayerCommandConfiguration>(this));
+            }
+
+            public static PlayerCommandConfiguration LoadFrom(string path)
+            {
+                return JsonSerializer.Deserialize<PlayerCommandConfiguration>(File.ReadAllText(path));
             }
         }
 
@@ -298,6 +335,19 @@ namespace Impostor.Commands.Core
             SetTasks = 29,
             UpdateGameData = 30,
         }
+
+        public static readonly byte[] MaxPlayers = new byte[]
+        {
+            10,8,6,4
+        };
+        public static readonly byte[] MaxImpostors = new byte[]
+        {
+            3,2,1
+        };
+        public static readonly string[] Maps = new string[]
+        {
+            "skeld","polus","mirahq"
+        };
         //not used yet:
         public class PacketGenerator
         {

@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Impostor.Api.Net.Messages;
 using Impostor.Api.Events.Player;
+using Impostor.Api.Innersloth;
 using Impostor.Api.Net;
 using Impostor.Api.Net.Manager;
 using Microsoft.Extensions.Logging;
@@ -38,9 +39,12 @@ namespace Impostor.Commands.Core
         public Thread MainThread { get; private set; }
         //the paths to the different files that we use.
         public string ConfigPath = Path.Combine("configs", "Impostor.Command.cfg");
+        public string ChatConfigPath = Path.Combine("configs", "playerCommands.cfg");
+
         public string BanFolder = Path.Combine("configs", "bans");
         //the dynamically loaded configuration.
         public Structures.PluginConfiguration Configuration { get; private set; }
+        public Structures.PlayerCommandConfiguration ChatCommandCfg { get; private set; }
         //the web API server.
         public WebApiServer ApiServer { get; private set; }
         //the HTTP server, hosting the dashboard HTML client.
@@ -106,14 +110,12 @@ namespace Impostor.Commands.Core
         /// <returns></returns>
         public override ValueTask DisableAsync()
         {
-            //we shut down the API, the HTTP server and save the config
-            //(intended for the future, when we'll write settings from the dashboard).
-
             Running = false;
             Logger.LogInformation("Server Commands shutting down.");
             ApiServer.Shutdown();
             DashboardServer.Shutdown();
             Configuration.SaveTo(ConfigPath);
+            ChatCommandCfg.SaveTo(ChatConfigPath);
             LogManager.Finish();
             AnnouncementManager.Shutdown();
             return default;
@@ -140,26 +142,39 @@ namespace Impostor.Commands.Core
             {
                 this.Configuration = Structures.PluginConfiguration.LoadFrom(ConfigPath);
             }
+
+
+            if (!File.Exists(ChatConfigPath))
+            {
+                //first time run. Create a new configuration.
+                var cfg = Structures.PlayerCommandConfiguration.GetDefaultConfig();
+                cfg.SaveTo(ChatConfigPath);
+                this.ChatCommandCfg = cfg;
+                //we need to create some keys.
+                Logger.LogInformation($"ImpostorHQ : Commands enabled by default: Map changer, max player changer, max impostors changer.");
+            }
+            else
+            {
+                this.ChatCommandCfg = Structures.PlayerCommandConfiguration.LoadFrom(ChatConfigPath);
+            }
+
             this.LogManager = new SpatiallyEfficientLogFileManager("hqlogs");
             InitializeInterfaces();
             InitializeServers();
-            
-
-            HighCourt = new JusticeSystem(BanFolder,10,Logger,ChatInterface,this);
+            HighCourt = new JusticeSystem(BanFolder,ChatCommandCfg.ReportsRequiredForBan,Logger,ChatInterface,this);
             HighCourt.OnPlayerBanned += PlayerBanned;
-
         }
 
         private void InitializeInterfaces()
         {
             this.ChatInterface = new GameCommandChatInterface(MessageWriterProvider, Logger);
             this.GameEventListener = new GamePluginInterface(ChatInterface);
-            //register commands : -->
-            //GameEventListener.RegisterCommand(GamePluginInterface.CommandPrefixes.TestCommand);
-            //GameEventListener.RegisterCommand(GamePluginInterface.CommandPrefixes.ReportCommand);
-            //-> disabled for Skeld.NET
 
-            //we are ready to start listening for game events.
+            if (ChatCommandCfg.EnableImpostorChange) GameEventListener.RegisterCommand(Structures.PlayerCommands.ImpostorChange);
+            if (ChatCommandCfg.EnableMapChange) GameEventListener.RegisterCommand(Structures.PlayerCommands.MapChange);
+            if (ChatCommandCfg.EnableMaxPlayersChange) GameEventListener.RegisterCommand(Structures.PlayerCommands.MaxPlayersChange);
+            if (ChatCommandCfg.EnableReportCommand) GameEventListener.RegisterCommand(Structures.PlayerCommands.ReportCommand);
+
             EventManager.RegisterListener(GameEventListener);
             GameEventListener.OnPlayerCommandReceived += GameEventListener_OnPlayerCommandReceived;
             GameEventListener.OnPlayerSpawnedFirst += GameEventListener_OnPlayerSpawnedFirst;
@@ -201,24 +216,105 @@ namespace Impostor.Commands.Core
 
         private void GameEventListener_OnPlayerCommandReceived(string command, string data, IPlayerChatEvent source)
         {
+            if (string.IsNullOrEmpty(data))
+            {
+                ChatInterface.SafeMultiMessage(source.Game, "Invalid command data. Please use /help for more information.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                return;
+            }
             switch (command)
             {
-                case GamePluginInterface.CommandPrefixes.TestCommand:
-                {
-                    ChatInterface.SafeMultiMessage(source.Game, $"Broad : Your test command was registered : {data}", Structures.BroadcastType.Information);
-                    ChatInterface.SafeMultiMessage(source.Game, "Private : works.", Structures.BroadcastType.Information, "(server/private)", source.ClientPlayer);
-                    break;
-                }
-                case GamePluginInterface.CommandPrefixes.ReportCommand:
+                case Structures.PlayerCommands.ReportCommand:
                 {
                     HighCourt.HandleReport(data,source);
                     break;
                 }
+                case Structures.PlayerCommands.MapChange:
+                {
+                    if (!source.ClientPlayer.IsHost)
+                    {
+                        ChatInterface.SafeMultiMessage(source.Game, "You are not the host.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                        break;
+                    }
+                    var map = data.ToLower();
+                    if (!Structures.Maps.Contains(map))
+                    {
+                        ChatInterface.SafeMultiMessage(source.Game, "Invalid map. Accepted values: Skeld, MiraHQ, Polus.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                    }
+                    else
+                    {
+                        var flag = MapTypes.Skeld;
+                        switch (map)
+                        {
+                            case "polus":
+                            {
+                                flag = MapTypes.Polus;
+                                break;
+                            }
+                            case "mirahq":
+                            {
+                                flag = MapTypes.MiraHQ;
+                                break;
+                            }
+                        }
+
+                        source.Game.Options.Map = flag;
+                        source.Game.SyncSettingsAsync();
+                    }
+                    break;
+                }
+                case Structures.PlayerCommands.MaxPlayersChange:
+                {
+                    if (!source.ClientPlayer.IsHost)
+                    {
+                        ChatInterface.SafeMultiMessage(source.Game, "You are not the host.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                        break;
+                    }
+                    if (Byte.TryParse(data, out byte num))
+                    {
+                        if (!Structures.MaxPlayers.Contains(num))
+                        {
+                            ChatInterface.SafeMultiMessage(source.Game, "Invalid number of players. Accepted numbers: 10, 8, 6, 4.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                        }
+                        else
+                        {
+                            source.Game.Options.MaxPlayers = num;
+                            source.Game.SyncSettingsAsync();
+                        }
+                    }
+                    else
+                    {
+                        ChatInterface.SafeMultiMessage(source.Game,"Invalid syntax. Please use \"/players <10,8,6,4>.",Structures.BroadcastType.Error,destination:source.ClientPlayer);
+                    }
+                    break;
+                }
+                case Structures.PlayerCommands.ImpostorChange:
+                {
+                    if (!source.ClientPlayer.IsHost)
+                    {
+                        ChatInterface.SafeMultiMessage(source.Game, "You are not the host.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                        break;
+                    }
+                    if (Byte.TryParse(data, out byte num))
+                    {
+                        if (!Structures.MaxImpostors.Contains(num))
+                        {
+                            ChatInterface.SafeMultiMessage(source.Game, "Invalid number of impostors. Accepted numbers: 3, 2, 1.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                        }
+                        else
+                        {
+                            source.Game.Options.NumImpostors = num;
+                            source.Game.SyncSettingsAsync();
+                        }
+                    }
+                    else
+                    {
+                        ChatInterface.SafeMultiMessage(source.Game, "Invalid syntax. Please use \"/impostors <3,2,1>.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                    }
+                    break;
+                }
             }
-            ApiServer.Push($"Received command {{from {source.PlayerControl.PlayerInfo.PlayerName}}} : {command} [{data}]","cmdsys",Structures.MessageFlag.ConsoleLogMessage,null);
         }
 
-        
         private void GameEventListener_OnPlayerSpawnedFirst(IPlayerSpawnedEvent evg)
         {
             HighCourt.HandleSpawn(evg);
