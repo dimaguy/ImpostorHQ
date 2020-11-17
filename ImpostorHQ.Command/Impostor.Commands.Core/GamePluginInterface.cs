@@ -32,6 +32,7 @@ namespace Impostor.Commands.Core
         {
             Utils.RegisterCommand(command);
         }
+
         private void PlayerCommandCalled(string command, string data, IPlayerChatEvent source)
         {
             OnPlayerCommandReceived?.Invoke(command, data, source);
@@ -48,11 +49,17 @@ namespace Impostor.Commands.Core
         {
             OnPlayerSpawnedFirst?.Invoke(evt);
         }
+
+        public void OnPlayerDestroyed(IPlayerDestroyedEvent evt)
+        {
+            OnPlayerLeft?.Invoke(evt);
+        }
         public delegate void DelPlayerCommandReceived(string command, string data, IPlayerChatEvent source);
         public delegate void DelPlayerSpawned(IPlayerSpawnedEvent evg);
+        public delegate void DelPlayerDestroyed(IPlayerDestroyedEvent evt);
 
         public event DelPlayerCommandReceived OnPlayerCommandReceived;
-        
         public event DelPlayerSpawned OnPlayerSpawnedFirst;
+        public event DelPlayerDestroyed OnPlayerLeft;
     }
 }

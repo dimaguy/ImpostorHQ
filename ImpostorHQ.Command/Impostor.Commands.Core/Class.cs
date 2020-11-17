@@ -71,6 +71,7 @@ namespace Impostor.Commands.Core
         //our lovely log manager!
         public SpatiallyEfficientLogFileManager LogManager { get; private set; }
         public AnnouncementServer AnnouncementManager { get; private set; }
+        public QuodEratDemonstrandum.QuiteElegantDirectory QED{ get; set; }
         #endregion
         /// <summary>
         /// This constructor will be 'injected' with the required references by the plugin API.
@@ -87,6 +88,7 @@ namespace Impostor.Commands.Core
             this.EventManager = manager;
             this.ClientManager = clientManager;
             this.Options = new ParallelOptions();
+            this.QED = new QuodEratDemonstrandum.QuiteElegantDirectory();
             Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
             KnownColors = Enum.GetNames(typeof(System.Drawing.KnownColor));
         }
@@ -118,6 +120,7 @@ namespace Impostor.Commands.Core
             ChatCommandCfg.SaveTo(ChatConfigPath);
             LogManager.Finish();
             AnnouncementManager.Shutdown();
+            QED.Shutdown();
             return default;
         }
         #endregion
@@ -174,10 +177,12 @@ namespace Impostor.Commands.Core
             if (ChatCommandCfg.EnableMapChange) GameEventListener.RegisterCommand(Structures.PlayerCommands.MapChange);
             if (ChatCommandCfg.EnableMaxPlayersChange) GameEventListener.RegisterCommand(Structures.PlayerCommands.MaxPlayersChange);
             if (ChatCommandCfg.EnableReportCommand) GameEventListener.RegisterCommand(Structures.PlayerCommands.ReportCommand);
+            GameEventListener.RegisterCommand(Structures.PlayerCommands.Help);
 
             EventManager.RegisterListener(GameEventListener);
             GameEventListener.OnPlayerCommandReceived += GameEventListener_OnPlayerCommandReceived;
             GameEventListener.OnPlayerSpawnedFirst += GameEventListener_OnPlayerSpawnedFirst;
+            GameEventListener.OnPlayerLeft += GameEventListener_OnPlayerLeft;
         }
 
         private void InitializeServers()
@@ -219,6 +224,11 @@ namespace Impostor.Commands.Core
         {
             if (string.IsNullOrEmpty(data))
             {
+                if (command.Equals(Structures.PlayerCommands.Help))
+                {
+                    ChatInterface.SafeMultiMessage(source.Game, ChatInterface.GenerateDocs(), Structures.BroadcastType.Information, destination: source.ClientPlayer);
+                    return;
+                }
                 ChatInterface.SafeMultiMessage(source.Game, "Invalid command data. Please use /help for more information.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
                 return;
             }
@@ -318,8 +328,15 @@ namespace Impostor.Commands.Core
 
         private void GameEventListener_OnPlayerSpawnedFirst(IPlayerSpawnedEvent evg)
         {
+            QED.EntanglePlayer(evg.ClientPlayer).ConfigureAwait(false);
             HighCourt.HandleSpawn(evg);
         }
+
+        private void GameEventListener_OnPlayerLeft(IPlayerDestroyedEvent evt)
+        {
+            QED.RemoveDeadPlayer(evt.ClientPlayer);
+        }
+
         /// <summary>
         /// This function is called when a dashboard user sends a command.
         /// </summary>
@@ -680,8 +697,8 @@ namespace Impostor.Commands.Core
                         bool matches = false;
                         foreach (var player in GetPlayers())
                         {
-                            if (player.Player == null) continue;
-                            if (player.Player.Character.PlayerInfo.PlayerName.Contains(message.Text,
+                            if (player.Character == null) continue;
+                            if (player.Character.PlayerInfo.PlayerName.Contains(message.Text,
                                 StringComparison.InvariantCultureIgnoreCase))
                             {
                                 if (!matches)
@@ -691,18 +708,18 @@ namespace Impostor.Commands.Core
                                 }
 
                                 response.AppendLine(
-                                    $"  {player.Player.Character.PlayerInfo.PlayerName}, Address: {player.Player.Client.Connection.EndPoint.Address}:");
-                                response.AppendLine($"      Lobby: {player.Player.Game.Code.Code}");
-                                response.AppendLine($"      Dead: {player.Player.Character.PlayerInfo.IsDead}");
-                                response.AppendLine($"      Impostor: {player.Player.Character.PlayerInfo.IsImpostor}");
+                                    $"  {player.Character.PlayerInfo.PlayerName}, Address: {player.Client.Connection.EndPoint.Address}:");
+                                response.AppendLine($"      Lobby: {player.Game.Code.Code}");
+                                response.AppendLine($"      Dead: {player.Character.PlayerInfo.IsDead}");
+                                response.AppendLine($"      Impostor: {player.Character.PlayerInfo.IsImpostor}");
                                 response.AppendLine(
-                                    $"      Color: {(Structures.PlayerColor) player.Player.Character.PlayerInfo.ColorId}");
+                                    $"      Color: {(Structures.PlayerColor) player.Character.PlayerInfo.ColorId}");
                                 response.AppendLine(
-                                    $"      Hat: {(Structures.HatId) player.Player.Character.PlayerInfo.HatId}");
+                                    $"      Hat: {(Structures.HatId) player.Character.PlayerInfo.HatId}");
                                 response.AppendLine(
-                                    $"      Pet: {(Structures.PetId) player.Player.Character.PlayerInfo.PetId}");
+                                    $"      Pet: {(Structures.PetId) player.Character.PlayerInfo.PetId}");
                                 response.AppendLine(
-                                    $"      Skin: {(Structures.SkinId) player.Player.Character.PlayerInfo.SkinId}");
+                                    $"      Skin: {(Structures.SkinId) player.Character.PlayerInfo.SkinId}");
                             }
                         }
 
@@ -915,28 +932,27 @@ namespace Impostor.Commands.Core
             foreach (var player in GetPlayers())
             {
                 if ((player == null ||
-                     player.Player == null ||
-                     player.Player.Client.Connection == null ||
-                     !player.Player.Client.Connection.IsConnected ||
-                     string.IsNullOrEmpty(player.Player.Character.PlayerInfo.PlayerName))) continue;
-                sb.Append(player.Player.Character.PlayerInfo.PlayerName);
+                     player.Character == null ||
+                     player.Client.Connection == null ||
+                     !player.Client.Connection.IsConnected ||
+                     string.IsNullOrEmpty(player.Character.PlayerInfo.PlayerName))) continue;
+                sb.Append(player.Character.PlayerInfo.PlayerName);
                 sb.Append(',');
-                sb.Append(player.Player.Client.Connection.EndPoint.Address);
+                sb.Append(player.Client.Connection.EndPoint.Address);
                 sb.Append(',');
-                sb.Append(player.Player.Game.Code.Code);
+                sb.Append(player.Game.Code.Code);
                 sb.Append(',');
                 sb.Append("Host: ");
-                sb.Append(player.Player.IsHost);
+                sb.Append(player.IsHost);
                 sb.Append("\r\n");
             }
 
             return sb.ToString();
         }
 
-        public IEnumerable<IClient> GetPlayers()
+        public IEnumerable<IClientPlayer> GetPlayers()
         {
-            var tempList = ClientManager.Clients.ToList();
-            foreach (var client in tempList) if (client != null && client.Connection != null) yield return client;
+            foreach (var client in QED.AcquireList()) if (client != null && client.Client.Connection != null) yield return client;
         }
         
         public bool AddApiKey(string key)

@@ -213,12 +213,12 @@ namespace Impostor.Commands.Core
             {
                 foreach (var possibleTarget in Manager.GetPlayers())
                 {
-                    var connection = possibleTarget.Connection;
+                    var connection = possibleTarget.Client.Connection;
                     if (connection != null)
                     {
-                        if (connection.EndPoint.Address.ToString().Equals(address) && possibleTarget.Player!=null)
+                        if (connection.EndPoint.Address.ToString().Equals(address) && possibleTarget!=null)
                         {
-                            possibleTarget.Player.BanAsync();
+                            possibleTarget.BanAsync();
                             message = "The target was also connected to a lobby. He has been kicked.";
                             break;
                         }
@@ -290,12 +290,11 @@ namespace Impostor.Commands.Core
         {
             foreach (var possibleTarget in Manager.GetPlayers())
             {
-                var player = possibleTarget.Player;
-                if(player == null || player.Client.Connection==null) continue;
-                if (player.Client.Connection.EndPoint.Address.Equals(addr))
+                if(possibleTarget == null || possibleTarget.Client.Connection==null ||possibleTarget.Character == null) continue;
+                if (possibleTarget.Client.Connection.EndPoint.Address.Equals(addr))
                 {
                     //we found our target!
-                    if(possibleTarget.Player != null) possibleTarget.Player.BanAsync();
+                    possibleTarget.BanAsync();
                     var report = new Structures.Report
                     {
                         Messages = new List<string>
@@ -306,8 +305,8 @@ namespace Impostor.Commands.Core
                     {
                         dashboard
                     },
-                        Target = player.Client.Connection.EndPoint.Address.ToString(),
-                        TargetName = player.Character.PlayerInfo.PlayerName,
+                        Target = possibleTarget.Client.Connection.EndPoint.Address.ToString(),
+                        TargetName = possibleTarget.Character.PlayerInfo.PlayerName,
 
                         MinutesRemaining = 0,
                         TotalReports = 0

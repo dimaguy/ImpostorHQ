@@ -73,7 +73,7 @@ namespace Impostor.Commands.Core
             public const string ImpostorChange = "/impostors";
             public const string MaxPlayersChange = "/players";
             public const string ReportCommand = "/report";
-
+            public const string Help = "/help";
         }
 
         public class Exceptions

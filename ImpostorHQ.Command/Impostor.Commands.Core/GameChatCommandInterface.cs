@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Impostor.Api.Net.Messages;
 using Impostor.Api.Events.Player;
 using System.Collections.Generic;
+using System.Threading;
 using Microsoft.Extensions.Logging;
 using Impostor.Api.Innersloth.Customization;
 
@@ -50,6 +51,16 @@ namespace Impostor.Commands.Core
             }
         }
 
+        public string GenerateDocs()
+        {
+            var str = "ImpostorHQ Commands: ";
+            foreach (var command in Commands)
+            {
+                str += $"{command} ";
+            }
+
+            return str;
+        }
         #pragma warning disable
         /// <summary>
         /// This function is used to broadcast a chat message to a specific lobby.
@@ -225,9 +236,13 @@ namespace Impostor.Commands.Core
             {
                 Parallel.ForEach(Commands, ParallelOptions, (prefix, state) =>
                 {
-                    if (evt.Message.StartsWith(prefix + ' '))
+                    if (evt.Message.StartsWith(prefix))
                     {
-                        var commandData = evt.Message.Remove(0, prefix.Length + 1);
+                        var commandData = string.Empty;
+                        if (evt.Message.StartsWith(prefix + ' '))
+                        {
+                            commandData = evt.Message.Remove(0, prefix.Length + 1);
+                        }
                         OnCommandInvoked?.Invoke(prefix, commandData, evt);
                         state.Break();
                     }
