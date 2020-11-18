@@ -63,6 +63,21 @@ namespace Impostor.Commands.Core.SELF
             }
         }
 
+        public void WritePluginLog(string sourceName, string message)
+        {
+            lock (_writerLock)
+            {
+                if (!IoStream.CanWrite) return;
+                BeginWriteLine((byte)Shared.LogType.Plugin,GetTime());
+                var data = Encoding.UTF8.GetBytes(sourceName);
+                EncodeStream.WriteByte((byte)data.Length);
+                EncodeStream.Write(data,0,data.Length);
+                data = Encoding.UTF8.GetBytes(message);
+                EncodeStream.Write(data,0,data.Length);
+                EndWriteLine();
+            }
+        }
+
         public void WriteExceptionLog(string trace,Shared.ErrorLocation location)
         {
             lock (_writerLock)

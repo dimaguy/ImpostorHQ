@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Monitors.Tests", "Monitors.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogParser", "LogParser\LogParser.csproj", "{0D072C9E-1BDA-478A-90C3-144CD637FB40}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugin.Test", "Plugin.Test\Plugin.Test.csproj", "{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_Ubuntu|Any CPU = Debug_Ubuntu|Any CPU
@@ -41,6 +43,14 @@ Global
 		{0D072C9E-1BDA-478A-90C3-144CD637FB40}.Release_Ubuntu|Any CPU.Build.0 = Release|Any CPU
 		{0D072C9E-1BDA-478A-90C3-144CD637FB40}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0D072C9E-1BDA-478A-90C3-144CD637FB40}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}.Debug_Ubuntu|Any CPU.ActiveCfg = Debug|Any CPU
+		{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}.Debug_Ubuntu|Any CPU.Build.0 = Debug|Any CPU
+		{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}.Release_Ubuntu|Any CPU.ActiveCfg = Release|Any CPU
+		{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}.Release_Ubuntu|Any CPU.Build.0 = Release|Any CPU
+		{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

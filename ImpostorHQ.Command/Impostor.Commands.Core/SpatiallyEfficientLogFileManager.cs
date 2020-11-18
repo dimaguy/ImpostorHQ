@@ -50,6 +50,15 @@ namespace Impostor.Commands.Core
             }
         }
 
+        public void LogPlugin(string source, string message)
+        {
+            lock (FileLock)
+            {
+                HandleEncoder();
+                Encoder.WritePluginLog(source,message);
+            }
+        }
+
         public void LogError(string trace, Shared.ErrorLocation source)
         {
             lock (FileLock)

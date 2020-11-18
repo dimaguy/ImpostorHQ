@@ -18,6 +18,7 @@ using Impostor.Api.Net;
 using Impostor.Api.Net.Manager;
 using Microsoft.Extensions.Logging;
 using Impostor.Commands.Core.DashBoard;
+using Impostor.Commands.Core.QuantumExtensionDirector;
 using Impostor.Commands.Core.SELF;
 
 #region Impostor API Imports
@@ -32,6 +33,8 @@ namespace Impostor.Commands.Core
     [ImpostorPlugin("ImpostorHQ","Impostor HeadQuarters API","anti, Dimaguy","0.0.4 beta")]
     public class Class : PluginBase
     {
+        public const int PluginApiVersion = 0;
+
         #region Members
         //indicates that the plugin is active.
         public bool Running { get; private set; }
@@ -40,7 +43,7 @@ namespace Impostor.Commands.Core
         //the paths to the different files that we use.
         public string ConfigPath = Path.Combine("configs", "Impostor.Command.cfg");
         public string ChatConfigPath = Path.Combine("configs", "playerCommands.cfg");
-
+        public const string PluginFolderPath = "hqplugins";
         public string BanFolder = Path.Combine("configs", "bans");
         //the dynamically loaded configuration.
         public Structures.PluginConfiguration Configuration { get; private set; }
@@ -71,7 +74,8 @@ namespace Impostor.Commands.Core
         //our lovely log manager!
         public SpatiallyEfficientLogFileManager LogManager { get; private set; }
         public AnnouncementServer AnnouncementManager { get; private set; }
-        public QuodEratDemonstrandum.QuiteElegantDirectory QED{ get; set; }
+        public QuodEratDemonstrandum.QuiteElegantDirectory QED{ get; private set; }
+        public PluginLoader PluginLoader { get; private set; }
         #endregion
         /// <summary>
         /// This constructor will be 'injected' with the required references by the plugin API.
@@ -89,6 +93,7 @@ namespace Impostor.Commands.Core
             this.ClientManager = clientManager;
             this.Options = new ParallelOptions();
             this.QED = new QuodEratDemonstrandum.QuiteElegantDirectory();
+            this.PluginLoader = new PluginLoader(PluginFolderPath,this,PluginApiVersion);
             Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
             KnownColors = Enum.GetNames(typeof(System.Drawing.KnownColor));
         }
@@ -121,6 +126,7 @@ namespace Impostor.Commands.Core
             LogManager.Finish();
             AnnouncementManager.Shutdown();
             QED.Shutdown();
+            PluginLoader.Shutdown();
             return default;
         }
         #endregion
@@ -131,6 +137,7 @@ namespace Impostor.Commands.Core
         public void Main()
         {
             if (!Directory.Exists("configs")) Directory.CreateDirectory("configs");
+            if (!Directory.Exists(PluginFolderPath)) Directory.CreateDirectory(PluginFolderPath);
             //we get the configuration-->
             if (!File.Exists(ConfigPath))
             {
@@ -166,6 +173,8 @@ namespace Impostor.Commands.Core
             InitializeServers();
             HighCourt = new JusticeSystem(BanFolder,ChatCommandCfg.ReportsRequiredForBan,Logger,ChatInterface,this);
             HighCourt.OnPlayerBanned += PlayerBanned;
+            //after we initialize everything, we can load the plugins.
+            PluginLoader.LoadPlugins();
         }
 
         private void InitializeInterfaces()
@@ -222,25 +231,31 @@ namespace Impostor.Commands.Core
 
         private void GameEventListener_OnPlayerCommandReceived(string command, string data, IPlayerChatEvent source)
         {
-            if (string.IsNullOrEmpty(data))
+            if (command.Equals(Structures.PlayerCommands.Help))
             {
-                if (command.Equals(Structures.PlayerCommands.Help))
-                {
-                    ChatInterface.SafeMultiMessage(source.Game, ChatInterface.GenerateDocs(), Structures.BroadcastType.Information, destination: source.ClientPlayer);
-                    return;
-                }
-                ChatInterface.SafeMultiMessage(source.Game, "Invalid command data. Please use /help for more information.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                ChatInterface.SafeMultiMessage(source.Game, ChatInterface.GenerateDocs(), Structures.BroadcastType.Information, destination: source.ClientPlayer);
                 return;
             }
+            
             switch (command)
             {
                 case Structures.PlayerCommands.ReportCommand:
                 {
+                    if (string.IsNullOrEmpty(data))
+                    {
+                        ChatInterface.SafeMultiMessage(source.Game, "Invalid command data. Please use /help for more information.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                        return;
+                    }
                     HighCourt.HandleReport(data,source);
                     break;
                 }
                 case Structures.PlayerCommands.MapChange:
                 {
+                    if (string.IsNullOrEmpty(data))
+                    {
+                        ChatInterface.SafeMultiMessage(source.Game, "Invalid command data. Please use /help for more information.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                        return;
+                    }
                     if (!source.ClientPlayer.IsHost)
                     {
                         ChatInterface.SafeMultiMessage(source.Game, "You are not the host.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
@@ -275,6 +290,11 @@ namespace Impostor.Commands.Core
                 }
                 case Structures.PlayerCommands.MaxPlayersChange:
                 {
+                    if (string.IsNullOrEmpty(data))
+                    {
+                        ChatInterface.SafeMultiMessage(source.Game, "Invalid command data. Please use /help for more information.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                        return;
+                    }
                     if (!source.ClientPlayer.IsHost)
                     {
                         ChatInterface.SafeMultiMessage(source.Game, "You are not the host.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
@@ -300,6 +320,11 @@ namespace Impostor.Commands.Core
                 }
                 case Structures.PlayerCommands.ImpostorChange:
                 {
+                    if (string.IsNullOrEmpty(data))
+                    {
+                        ChatInterface.SafeMultiMessage(source.Game, "Invalid command data. Please use /help for more information.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                        return;
+                    }
                     if (!source.ClientPlayer.IsHost)
                     {
                         ChatInterface.SafeMultiMessage(source.Game, "You are not the host.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
@@ -345,7 +370,7 @@ namespace Impostor.Commands.Core
         private void DashboardCommandReceived(Structures.BaseMessage message,IWebSocketConnection client)
         {
             //this indicates if the command was successfully parsed.
-            bool handled = true;
+            bool commandHandled = true;
             try
             {
                 string cmd = string.Empty;
@@ -384,7 +409,7 @@ namespace Impostor.Commands.Core
                         if (isSingle)
                         {
                             //a broadcast command must contain some data to broadcast.
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -443,7 +468,7 @@ namespace Impostor.Commands.Core
                     {
                         if (!isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -463,7 +488,7 @@ namespace Impostor.Commands.Core
                         {
                             //we actually reject data, because the user might be confused.
                             //if we accept his command, we might increase his level of confusion.
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -481,7 +506,7 @@ namespace Impostor.Commands.Core
                     {
                         if (!isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -493,7 +518,7 @@ namespace Impostor.Commands.Core
                     {
                         if (!isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -518,13 +543,13 @@ namespace Impostor.Commands.Core
                     {
                         if (isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
                         if (IPAddress.TryParse(message.Text, out IPAddress address))
                         {
-                            handled = true;
+                            commandHandled = true;
                             isSingle = true;
                             if (HighCourt.BanPlayer(address, client.ConnectionInfo.ClientIpAddress))
                             {
@@ -540,7 +565,7 @@ namespace Impostor.Commands.Core
                         }
                         else
                         {
-                            handled = false;
+                            commandHandled = false;
                         }
 
                         break;
@@ -549,7 +574,7 @@ namespace Impostor.Commands.Core
                     {
                         if (isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -576,11 +601,11 @@ namespace Impostor.Commands.Core
                                 $"The target [{address}] has been blindly banned by {client.ConnectionInfo.ClientIpAddress}!",
                                 "(SERVER/CRITICAL/WIDE)", Structures.MessageFlag.ConsoleLogMessage);
                             isSingle = true;
-                            handled = true;
+                            commandHandled = true;
                         }
                         else
                         {
-                            handled = false;
+                            commandHandled = false;
                         }
 
                         break;
@@ -589,7 +614,7 @@ namespace Impostor.Commands.Core
                     {
                         if (!isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -610,7 +635,7 @@ namespace Impostor.Commands.Core
                     {
                         if (isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -638,7 +663,7 @@ namespace Impostor.Commands.Core
                     {
                         if (isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -675,7 +700,7 @@ namespace Impostor.Commands.Core
                     {
                         if (!isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -688,7 +713,7 @@ namespace Impostor.Commands.Core
                     {
                         if (isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -733,7 +758,7 @@ namespace Impostor.Commands.Core
                     {
                         if (isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -760,7 +785,7 @@ namespace Impostor.Commands.Core
                     {
                         if (!isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -791,7 +816,7 @@ namespace Impostor.Commands.Core
                     {
                         if (isSingle)
                         {
-                            handled = false;
+                            commandHandled = false;
                             break;
                         }
 
@@ -837,21 +862,15 @@ namespace Impostor.Commands.Core
                         }
                         else
                         {
-                            handled = false;
+                            commandHandled = false;
                         }
 
                         break;
 
                     }
-                    default:
-                        //a command that is not implemented or is invalid.
-                        Logger.LogWarning(
-                            $"{client.ConnectionInfo.ClientIpAddress} tried to execute an invalid command.");
-                        handled = false;
-                        break;
                 }
 
-                if (handled)
+                if (commandHandled)
                 {
                     //we don't need to inform that the command was executed, if it is a command that returns data (like /help)
                     if (!isSingle)
@@ -859,8 +878,12 @@ namespace Impostor.Commands.Core
                             Structures.MessageFlag.ConsoleLogMessage, client);
                 }
                 else
+                {
+                    Logger.LogWarning(
+                        $"{client.ConnectionInfo.ClientIpAddress} tried to execute an invalid command.");
                     ApiServer.PushTo("Invalid command.", Structures.ServerSources.DebugSystem,
                         Structures.MessageFlag.ConsoleLogMessage, client);
+                }
             }
             catch (ArgumentOutOfRangeException)
             {
@@ -990,6 +1013,21 @@ namespace Impostor.Commands.Core
         {
             var c = Color.FromName(input);
             return $"[{c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2")}FF]"; //the opacity is hardcoded, it is not needed.
+        }
+
+        public void LogPlugin(string sourcePluginName, string message)
+        {
+            LogManager.LogPlugin(sourcePluginName,message);
+        }
+
+        public void ConsolePluginWarning(string message)
+        {
+            Logger.LogWarning("ImpostorHQ Plugin System : " + message);
+        }
+
+        public void ConsolePluginStatus(string message)
+        {
+            Logger.LogInformation("ImpostorHQ Plugin System : " + message);
         }
     }
 }

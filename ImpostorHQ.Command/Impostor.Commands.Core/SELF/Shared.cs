@@ -9,7 +9,7 @@ namespace Impostor.Commands.Core.SELF
     {
         public enum LogType : byte
         {
-            Rpc = 0, Dashboard = 1,Error = 2
+            Rpc = 0, Dashboard = 1,Error = 2,Plugin = 3
         }
 
         public enum ErrorLocation : byte
@@ -50,7 +50,7 @@ namespace Impostor.Commands.Core.SELF
             SetTasks,
             UpdateGameData
         }
-        public static readonly byte[] CrLf = Encoding.ASCII.GetBytes("\r\n");
+
         public class RpcLog
         {
             public Shared.RpcCalls Type { get; set; }
@@ -95,6 +95,31 @@ namespace Impostor.Commands.Core.SELF
                 {
                     SourceIp = new IPAddress(source.LogData.Take(4).ToArray()).ToString(),
                     Message = Encoding.UTF8.GetString(data)
+                };
+            }
+        }
+
+        public class PluginLog
+        {
+            public string PluginName { get; set; }
+            public string Message { get; set; }
+            public PluginLog()
+            {
+
+            }
+
+            public static PluginLog Deserialize(SelfDecoder.BinaryLog source)
+            {
+                var nameSize = source.LogData[0];
+                var data = new byte[nameSize];
+                var name = Encoding.UTF8.GetString(data);
+                Buffer.BlockCopy(source.LogData,1,data,0,nameSize);
+                data = new byte[source.LogData.Length - nameSize - 1];
+                Buffer.BlockCopy(source.LogData,nameSize+1,data,0,data.Length);
+                return new PluginLog()
+                {
+                    PluginName =  name,
+                    Message =  Encoding.UTF8.GetString(data)
                 };
             }
         }

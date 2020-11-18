@@ -66,6 +66,15 @@ namespace Impostor.Commands.Core.SELF
                     }));
                     break;
                 }
+                case Shared.LogType.Plugin:
+                {
+                    var pluginLog = Shared.PluginLog.Deserialize(bLog);
+                    CsvStream.AppendLine(CompileCsv(new string[]
+                    {
+                        $"Plugin {pluginLog.PluginName}", pluginLog.Message
+                    }));
+                    break;
+                }
             }
         }
     }
