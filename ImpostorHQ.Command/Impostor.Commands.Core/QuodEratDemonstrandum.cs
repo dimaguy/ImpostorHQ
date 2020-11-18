@@ -13,6 +13,7 @@ namespace Impostor.Commands.Core
         public class QuiteElegantDirectory
         {
             //nothing special going on here, but it is technically a quantum effect :)
+            //P.S this is a joke
             public Thread ObserverThread { get; private set; }
             private bool DoObserve { get; set; }
             private List<IClientPlayer> Players { get; set; }
