@@ -15,10 +15,9 @@ namespace ImpostorHQ.Plugin.Fashionable
 
         public string Author => "anti";
 
-        public uint HqVersion => 0;
+        public uint HqVersion => 1;
 
-
-        public Class PluginBase { get; private set; }
+        public QuiteExtendableDirectInterface PluginBase { get; private set; }
         public ItemConverter SkinProvider { get; private set; }
         public Dictionary<string,Skin> SkinList { get; set; }
         public string SkinStr { get; set; }
@@ -26,7 +25,7 @@ namespace ImpostorHQ.Plugin.Fashionable
         {
         }
 
-        public void Load(Class reference)
+        public void Load(QuiteExtendableDirectInterface reference)
         {
             SkinList = new Dictionary<string, Skin>();
             if (!Directory.Exists(Constants.SkinPath)) Directory.CreateDirectory(Constants.SkinPath);

@@ -6,11 +6,11 @@ namespace Plugin.Test
 {
     public class MainClass : IPlugin
     {
-        public uint HqVersion => 0;
+        public uint HqVersion => 1;
         public string Name => "Test / Example plugin.";
         public string Author => "anti";
-        public Class PluginBase { get; private set; }
-        public void Load(Class reference)
+        public QuiteExtendableDirectInterface PluginBase { get; private set; }
+        public void Load(QuiteExtendableDirectInterface reference)
         {
             this.PluginBase = reference;
             MyFunction();
@@ -18,7 +18,7 @@ namespace Plugin.Test
 
         private void MyFunction()
         {
-            PluginBase.ConsolePluginStatus("Greetings from the test plugin!");
+            PluginBase.UnsafeDirectReference.ConsolePluginStatus("Greetings from the test plugin!");
             PluginBase.ApiServer.RegisterCommand("/greet", "=> A test command, added by the test plugin.");
             PluginBase.ApiServer.OnMessageReceived += (message, source) =>
             {
@@ -39,7 +39,7 @@ namespace Plugin.Test
         }
         public void Destroy()
         {
-            PluginBase.ConsolePluginStatus("Test plugin shutting down...");
+            PluginBase.UnsafeDirectReference.ConsolePluginStatus("Test plugin shutting down...");
         }
     }
 }

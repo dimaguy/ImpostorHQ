@@ -33,7 +33,7 @@ namespace Impostor.Commands.Core
     [ImpostorPlugin("ImpostorHQ","Impostor HeadQuarters API","anti, Dimaguy","0.0.4 beta")]
     public class Class : PluginBase
     {
-        public const int PluginApiVersion = 0;
+        public const int PluginApiVersion = 1;
 
         #region Members
         //indicates that the plugin is active.
@@ -76,6 +76,7 @@ namespace Impostor.Commands.Core
         public AnnouncementServer AnnouncementManager { get; private set; }
         public QuodEratDemonstrandum.QuiteElegantDirectory QED{ get; private set; }
         public PluginLoader PluginLoader { get; private set; }
+        public QuiteExtendableDirectInterface QEDi { get; set; }
         #endregion
         /// <summary>
         /// This constructor will be 'injected' with the required references by the plugin API.
@@ -93,7 +94,6 @@ namespace Impostor.Commands.Core
             this.ClientManager = clientManager;
             this.Options = new ParallelOptions();
             this.QED = new QuodEratDemonstrandum.QuiteElegantDirectory();
-            this.PluginLoader = new PluginLoader(PluginFolderPath,this,PluginApiVersion);
             Options.MaxDegreeOfParallelism = Environment.ProcessorCount;
             KnownColors = Enum.GetNames(typeof(System.Drawing.KnownColor));
         }
@@ -174,7 +174,29 @@ namespace Impostor.Commands.Core
             HighCourt = new JusticeSystem(BanFolder,ChatCommandCfg.ReportsRequiredForBan,Logger,ChatInterface,this);
             HighCourt.OnPlayerBanned += PlayerBanned;
             //after we initialize everything, we can load the plugins.
+            QEDi = new QuiteExtendableDirectInterface()
+            {
+                Logger = Logger,
+                MainThread = MainThread,
+                BaseConfig = Configuration,
+                PlayerCommandConfig = ChatCommandCfg,
+                ApiServer = ApiServer,
+                DashboardServer = DashboardServer,
+                EventListener = GameEventListener,
+                GameManager = GameManager,
+                ClientManager = ClientManager,
+                EventManager = EventManager,
+                MessageWriterProvider = MessageWriterProvider,
+                JusticeSystem = HighCourt,
+                ChatInterface = ChatInterface,
+                LogManager = LogManager,
+                AnnouncementServer = AnnouncementManager,
+                QED = QED,
+                UnsafeDirectReference = this
+            };
+            this.PluginLoader = new PluginLoader(PluginFolderPath, QEDi, PluginApiVersion);
             PluginLoader.LoadPlugins();
+
         }
 
         private void InitializeInterfaces()

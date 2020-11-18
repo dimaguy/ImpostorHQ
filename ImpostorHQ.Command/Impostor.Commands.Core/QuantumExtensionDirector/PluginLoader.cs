@@ -14,8 +14,8 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         public Type TargetType { get; private set; }
         public uint ApiVersion { get; private set; }
         public string FolderPath { get; private set; }
-        public readonly Class Master;
-        public PluginLoader(string folderPath, Class master, uint version)
+        public readonly QuiteExtendableDirectInterface Master;
+        public PluginLoader(string folderPath, QuiteExtendableDirectInterface master, uint version)
         {
             this.ApiVersion = version;
             this.Plugins = new List<IPlugin>();
@@ -46,19 +46,19 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
                 {
                     if (x.HqVersion != ApiVersion)
                     {
-                        Master.ConsolePluginWarning($"The plugin \"{x.Name}\" is built on a different API version (current: {ApiVersion}, target: {x.HqVersion}). This may induce unwanted behavior and/or errors.");
+                        Master.UnsafeDirectReference.ConsolePluginWarning($"The plugin \"{x.Name}\" is built on a different API version (current: {ApiVersion}, target: {x.HqVersion}). This may induce unwanted behavior and/or errors.");
                         //I will still go ahead, but the user should know that errors may appear.
-                        Master.LogPlugin(x.Name, $"Warning: The plugin is targeting version {x.HqVersion}. Current API version: {ApiVersion}.");
+                        Master.UnsafeDirectReference.LogPlugin(x.Name, $"Warning: The plugin is targeting version {x.HqVersion}. Current API version: {ApiVersion}.");
                     }
                     Plugins.Add(x);
-                    Master.ConsolePluginStatus($"Loaded \"{x.Name}\" by \"{x.Author}\"");
+                    Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded \"{x.Name}\" by \"{x.Author}\"");
                 }
             }
             foreach (var plugin in Plugins)
             {
                 plugin.Load(Master);
             }
-            Master.ConsolePluginStatus($"Loaded {Plugins.Count} plugins.");
+            Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded {Plugins.Count} plugins.");
         }
 
         public void Shutdown()

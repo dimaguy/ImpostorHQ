@@ -13,7 +13,7 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         string Author { get; }
         UInt32 HqVersion { get; }
 
-        void Load(Class reference);
+        void Load(QuiteExtendableDirectInterface reference);
         void Destroy();
     }
 }
