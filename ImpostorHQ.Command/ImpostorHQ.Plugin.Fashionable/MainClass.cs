@@ -66,7 +66,7 @@ namespace ImpostorHQ.Plugin.Fashionable
                     skins += "'" + preSetSkin.Name + "', ";
                 }
 
-                if (skins.Length > 0)
+                if (SkinList.Count > 0)
                 {
                     skins = skins.Remove(skins.Length - 3, 2);
                 }

@@ -53,7 +53,7 @@ namespace Impostor.Commands.Core.SELF
                     var dashboardLog = Shared.DashboardLog.Deserialize(bLog);
                     CsvStream.AppendLine(CompileCsv(new string[]
                     {
-                        "Dashboard", "From " + dashboardLog.SourceIp, dashboardLog.Message
+                        bLog.TimeStamp.ToString("T"),"Dashboard", "From " + dashboardLog.SourceIp, dashboardLog.Message
                     }));
                     break;
                 }
@@ -62,7 +62,7 @@ namespace Impostor.Commands.Core.SELF
                     var errorLog = Shared.ErrorLog.Deserialize(bLog);
                     CsvStream.AppendLine(CompileCsv(new string[]
                     {
-                        "Error", "Thrown in " + errorLog.Location, errorLog.Message
+                        bLog.TimeStamp.ToString("T"),"Error", "Thrown in " + errorLog.Location, errorLog.Message
                     }));
                     break;
                 }
@@ -71,7 +71,7 @@ namespace Impostor.Commands.Core.SELF
                     var pluginLog = Shared.PluginLog.Deserialize(bLog);
                     CsvStream.AppendLine(CompileCsv(new string[]
                     {
-                        $"Plugin {pluginLog.PluginName}", pluginLog.Message
+                        bLog.TimeStamp.ToString("T"),$"Plugin {pluginLog.PluginName}", pluginLog.Message
                     }));
                     break;
                 }

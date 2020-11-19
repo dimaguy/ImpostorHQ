@@ -15,7 +15,6 @@ namespace Plugin.Test
             this.PluginBase = reference;
             MyFunction();
         }
-
         private void MyFunction()
         {
             PluginBase.UnsafeDirectReference.ConsolePluginStatus("Greetings from the test plugin!");

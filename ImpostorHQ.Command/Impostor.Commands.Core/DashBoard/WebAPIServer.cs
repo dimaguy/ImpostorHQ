@@ -259,24 +259,15 @@ namespace Impostor.Commands.Core.DashBoard
                 };
                 connection.Send(JsonSerializer.Serialize(msg));
             }
-            catch(Exception ex)
+            catch (Fleck.ConnectionNotAvailableException)
             {
-                if (ex.Message.Contains("closing"))
-                {
-                    if (connection != null)
-                    {
-                        lock(Clients)
-                            if (Clients.Contains(connection))
-                                Clients.Remove(connection);
-                    }
-                }
-                else
-                {
-                    //we'd like all the dashboards to know that they have been betrayed.
-                    Master.LogManager.LogError($"SRC : {connection.ConnectionInfo.ClientIpAddress}: " + ex.ToString(), Shared.ErrorLocation.PushTo);
-                    Logger.LogError(ex.Message);
-                }
-                
+                lock (Clients) if (Clients.Contains(connection)) Clients.Remove(connection);
+            }
+            catch (Exception ex)
+            {
+                //we'd like all the dashboards to know that they have been betrayed.
+                Master.LogManager.LogError($"SRC : {connection.ConnectionInfo.ClientIpAddress}: " + ex.ToString(), Shared.ErrorLocation.PushTo);
+                Logger.LogError(ex.Message);
             }
         }
 
