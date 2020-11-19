@@ -56,7 +56,7 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
             }
             foreach (var plugin in Plugins)
             {
-                plugin.Load(Master);
+                plugin.Load(Master, new PluginFileSystem(Path.Combine("hqplugins", "data"), plugin.Name));
             }
             Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded {Plugins.Count} plugins.");
         }

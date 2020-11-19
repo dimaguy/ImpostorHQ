@@ -2,10 +2,12 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Impostor.Api.Innersloth;
 using Impostor.Api.Innersloth.Customization;
 using Impostor.Commands.Core;
 using Impostor.Commands.Core.QuantumExtensionDirector;
 using Impostor.Commands.Core.SELF;
+using Microsoft.Extensions.Logging;
 
 namespace ImpostorHQ.Plugin.Fashionable
 {
@@ -17,27 +19,70 @@ namespace ImpostorHQ.Plugin.Fashionable
 
         public uint HqVersion => 1;
 
+        public string SkinDir { get; private set; }
+
         public QuiteExtendableDirectInterface PluginBase { get; private set; }
         public ItemConverter SkinProvider { get; private set; }
         public Dictionary<string,Skin> SkinList { get; set; }
-        public string SkinStr { get; set; }
+        public FashionConfig Config { get; set; }
+        public string Help { get; private set; }
         public void Destroy()
         {
         }
 
-        public void Load(QuiteExtendableDirectInterface reference)
+        public void Load(QuiteExtendableDirectInterface reference,PluginFileSystem pfs)
         {
+            SkinDir = Path.Combine(pfs.Store, Constants.SkinPath);
             SkinList = new Dictionary<string, Skin>();
-            if (!Directory.Exists(Constants.SkinPath)) Directory.CreateDirectory(Constants.SkinPath);
+            if (!Directory.Exists(SkinDir)) Directory.CreateDirectory(SkinDir);
             this.PluginBase = reference;
-            this.SkinProvider = new ItemConverter();
-            foreach (var preSetSkin in Skin.FromDir(Constants.SkinPath))
+
+            if (pfs.IsDefault())
             {
-                SkinList.Add(preSetSkin.Name,preSetSkin);
-                SkinStr += $"\"{preSetSkin.Name}\" ";
+                //the first time the plugin is run. We will create a config.
+                var config = new FashionConfig(){ AllowPreSetSkins = true, AllowRandomSkins = true, AllowInGame = false };
+                pfs.Save(config);
+                this.Config = config;
+            }
+            else
+            {
+                //the plugin has been run before, we can load the config.
+                this.Config = pfs.ReadConfig<FashionConfig>();
+                if (!Config.AllowPreSetSkins && !Config.AllowRandomSkins)
+                {
+                    reference.Logger.LogError("Fashion : Critical error - invalid config. Reverting back to the default config.");
+                    Config = new FashionConfig() { AllowPreSetSkins = true, AllowRandomSkins = true,AllowInGame = false};
+                    pfs.Save(Config);
+                }
             }
 
-            if (!String.IsNullOrEmpty(SkinStr)) SkinStr = $" / {SkinStr} (sets the predefined styles)>";
+            this.SkinProvider = new ItemConverter();
+            string skins = " ";
+            if (Config.AllowPreSetSkins)
+            {
+                foreach (var preSetSkin in Skin.FromDir(SkinDir))
+                {
+                    SkinList.Add(preSetSkin.Name, preSetSkin);
+                    skins += "'" + preSetSkin.Name + "', ";
+                }
+
+                if (skins.Length > 0)
+                {
+                    skins = skins.Remove(skins.Length - 3, 2);
+                }
+                reference.Logger.LogInformation($"Fashion: loaded {SkinList.Count} skins.");
+            }
+
+            Help += "Usage: \n";
+            if (Config.AllowRandomSkins)
+            {
+                Help += "/fashion new => gets a random style.";
+            }
+
+            if (Config.AllowPreSetSkins)
+            {
+                Help += $"\n/fashion {skins} => sets the pre-defined style.";
+            }
             RegisterCommands();
         }
 
@@ -49,7 +94,11 @@ namespace ImpostorHQ.Plugin.Fashionable
 
         private  async void ChatInterface_OnCommandInvoked(string command, string data, Impostor.Api.Events.Player.IPlayerChatEvent source)
         {
+            
             if (source == null || source.ClientPlayer.Character == null) return;
+            if(source.ClientPlayer.Game.GameState == GameStates.Started)
+                if (!Config.AllowInGame)
+                    return;
             try
             {
                 switch (command)
@@ -58,10 +107,10 @@ namespace ImpostorHQ.Plugin.Fashionable
                     {
                         if (string.IsNullOrEmpty(data))
                         {
-                            PluginBase.ChatInterface.SafeMultiMessage(source.Game, $"Usage: /fashion new (random style) {SkinStr}", Structures.BroadcastType.Error, destination: source.ClientPlayer);
+                            PluginBase.ChatInterface.SafeMultiMessage(source.Game, Help, Structures.BroadcastType.Error, destination: source.ClientPlayer);
                             return;
                         }
-                        else if (data.Equals("new"))
+                        else if (data.Equals("new") && Config.AllowRandomSkins)
                         {
                             var randomSkin = Skin.GetRandomSkin(SkinProvider);
                             await source.ClientPlayer.Character.SetSkinAsync(randomSkin.Clothes).ConfigureAwait(false);
@@ -69,7 +118,7 @@ namespace ImpostorHQ.Plugin.Fashionable
                             await source.ClientPlayer.Character.SetPetAsync(randomSkin.Pet).ConfigureAwait(false);
                         }
 
-                        else if (SkinList.ContainsKey(data))
+                        else if (SkinList.ContainsKey(data) && Config.AllowPreSetSkins)
                         {
                             var skin = SkinList[data];
                             await source.ClientPlayer.Character.SetSkinAsync(skin.Clothes).ConfigureAwait(false);
@@ -91,5 +140,13 @@ namespace ImpostorHQ.Plugin.Fashionable
             }
             
         }
+    }
+
+    [Serializable]
+    public class FashionConfig
+    {
+        public bool AllowRandomSkins { get; set; }
+        public bool AllowPreSetSkins { get; set; }
+        public bool AllowInGame { get; set; }
     }
 }

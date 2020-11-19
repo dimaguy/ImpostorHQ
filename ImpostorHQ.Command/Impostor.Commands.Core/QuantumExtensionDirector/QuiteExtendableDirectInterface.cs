@@ -78,6 +78,10 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         /// </summary>
         public QuodEratDemonstrandum.QuiteElegantDirectory QED { get; set; }
         /// <summary>
+        /// This can be used to acquire a standard path for storing data and configs.
+        /// </summary>
+        public PluginFileSystem StorageProvider { get; set; }
+        /// <summary>
         /// This is a direct reference to the plugin main. Please use this if the referenced object do not meet your requirements. Warning: this offers total access over ImpostorHQ. Messing with the wrong values or function could lead to unwanted errors. Please refer to the source code before accessing this.
         /// </summary>
         public Class UnsafeDirectReference { get; set; }

@@ -10,7 +10,7 @@ namespace Plugin.Test
         public string Name => "Test / Example plugin.";
         public string Author => "anti";
         public QuiteExtendableDirectInterface PluginBase { get; private set; }
-        public void Load(QuiteExtendableDirectInterface reference)
+        public void Load(QuiteExtendableDirectInterface reference,PluginFileSystem pfs)
         {
             this.PluginBase = reference;
             MyFunction();
