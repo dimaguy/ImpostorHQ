@@ -49,17 +49,40 @@ namespace Impostor.Commands.Core
         {
             OnPlayerSpawnedFirst?.Invoke(evt);
         }
-
+        [EventListener]
         public void OnPlayerDestroyed(IPlayerDestroyedEvent evt)
         {
             OnPlayerLeft?.Invoke(evt);
         }
+        [EventListener]
+        public void OnGameCreated(IGameCreatedEvent evt)
+        {
+            OnLobbyCreated?.Invoke(evt);
+        }
+        [EventListener]
+        public void OnGameDestroyed(IGameDestroyedEvent evt)
+        {
+            OnLobbyTerminated?.Invoke(evt);
+        }
+        [EventListener]
+        public void OnGameStarted(IGameStartedEvent evt)
+        {
+            OnLobbyStarted?.Invoke(evt);
+        }
+
+
         public delegate void DelPlayerCommandReceived(string command, string data, IPlayerChatEvent source);
         public delegate void DelPlayerSpawned(IPlayerSpawnedEvent evg);
         public delegate void DelPlayerDestroyed(IPlayerDestroyedEvent evt);
+        public delegate void DelGameCreated(IGameCreatedEvent evt);
+        public delegate void DelGameDestroyed(IGameDestroyedEvent evt);
+        public delegate void DelGameStarted(IGameStartedEvent evt);
 
         public event DelPlayerCommandReceived OnPlayerCommandReceived;
         public event DelPlayerSpawned OnPlayerSpawnedFirst;
         public event DelPlayerDestroyed OnPlayerLeft;
+        public event DelGameCreated OnLobbyCreated;
+        public event DelGameDestroyed OnLobbyTerminated;
+        public event DelGameStarted OnLobbyStarted;
     }
 }

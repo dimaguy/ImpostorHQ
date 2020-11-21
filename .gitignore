@@ -343,3 +343,5 @@ healthchecksdb
 *.bat
 Server.Test
 Server.Test/
+/ImpostorHQ.Command/ImpostorHQ.TestPlugins.antiSync
+/ImpostorHQ.Command/SupremeSyncServer

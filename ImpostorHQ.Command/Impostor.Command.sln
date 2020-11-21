@@ -9,11 +9,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Monitors.Tests", "Monitors.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LogParser", "LogParser\LogParser.csproj", "{0D072C9E-1BDA-478A-90C3-144CD637FB40}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Plugin.Test", "Plugin.Test\Plugin.Test.csproj", "{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plugin.Test", "Plugin.Test\Plugin.Test.csproj", "{C916DC6C-D2AD-4869-9B5E-8C79D83A14AD}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Plugin Examples", "Plugin Examples", "{591D8590-F104-4D3A-AD0B-B8C825AA66B7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImpostorHQ.Plugin.Fashionable", "ImpostorHQ.Plugin.Fashionable\ImpostorHQ.Plugin.Fashionable.csproj", "{F4D0DB97-AEE8-49B8-A568-0D5B2F714AA0}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ImpostorHQ.Plugin.Fashionable", "ImpostorHQ.Plugin.Fashionable\ImpostorHQ.Plugin.Fashionable.csproj", "{F4D0DB97-AEE8-49B8-A568-0D5B2F714AA0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImpostorHQ.Plugin.Fashionable.Designer", "ImpostorHQ.Plugin.Fashionable.Designer\ImpostorHQ.Plugin.Fashionable.Designer.csproj", "{76E59656-C45F-4F28-A184-9CB15EE5AF73}"
 EndProject
