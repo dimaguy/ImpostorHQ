@@ -1,11 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Fleck;
+using System;
 using System.Net;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
-using Fleck;
+using System.Collections.Generic;
 using Impostor.Api.Games.Managers;
 using Impostor.Commands.Core.SELF;
 using Microsoft.Extensions.Logging;

@@ -4,11 +4,9 @@ using Impostor.Api.Net;
 using Impostor.Api.Games;
 using System.Threading.Tasks;
 using Impostor.Api.Net.Messages;
-using Impostor.Api.Events.Player;
 using System.Collections.Generic;
-using System.Threading;
+using Impostor.Api.Events.Player;
 using Microsoft.Extensions.Logging;
-using Impostor.Api.Innersloth.Customization;
 
 namespace Impostor.Commands.Core
 {
@@ -20,7 +18,7 @@ namespace Impostor.Commands.Core
         //  the options required for parallel parsing operations.
         private ParallelOptions ParallelOptions { get; set; }
         //  the packet generator required for forging messages.
-        private Structures.PacketGenerator Generator { get; set; }
+        public Structures.PacketGenerator Generator { get; set; }
         //  the global logger.
         private ILogger Logger { get; set; }
         /// <summary>

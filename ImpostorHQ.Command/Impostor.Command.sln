@@ -17,6 +17,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ImpostorHQ.Plugin.Fashionab
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImpostorHQ.Plugin.Fashionable.Designer", "ImpostorHQ.Plugin.Fashionable.Designer\ImpostorHQ.Plugin.Fashionable.Designer.csproj", "{76E59656-C45F-4F28-A184-9CB15EE5AF73}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImpostorHQ.Plugin.HallOfShame", "ImpostorHQ.Plugin.HallOfShame\ImpostorHQ.Plugin.HallOfShame.csproj", "{6E531144-02F5-46A3-9758-D660A09EE7C0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_Ubuntu|Any CPU = Debug_Ubuntu|Any CPU
@@ -73,6 +75,14 @@ Global
 		{76E59656-C45F-4F28-A184-9CB15EE5AF73}.Release_Ubuntu|Any CPU.Build.0 = Release|Any CPU
 		{76E59656-C45F-4F28-A184-9CB15EE5AF73}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{76E59656-C45F-4F28-A184-9CB15EE5AF73}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6E531144-02F5-46A3-9758-D660A09EE7C0}.Debug_Ubuntu|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E531144-02F5-46A3-9758-D660A09EE7C0}.Debug_Ubuntu|Any CPU.Build.0 = Debug|Any CPU
+		{6E531144-02F5-46A3-9758-D660A09EE7C0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6E531144-02F5-46A3-9758-D660A09EE7C0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6E531144-02F5-46A3-9758-D660A09EE7C0}.Release_Ubuntu|Any CPU.ActiveCfg = Release|Any CPU
+		{6E531144-02F5-46A3-9758-D660A09EE7C0}.Release_Ubuntu|Any CPU.Build.0 = Release|Any CPU
+		{6E531144-02F5-46A3-9758-D660A09EE7C0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6E531144-02F5-46A3-9758-D660A09EE7C0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -80,6 +90,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{F4D0DB97-AEE8-49B8-A568-0D5B2F714AA0} = {591D8590-F104-4D3A-AD0B-B8C825AA66B7}
 		{76E59656-C45F-4F28-A184-9CB15EE5AF73} = {591D8590-F104-4D3A-AD0B-B8C825AA66B7}
+		{6E531144-02F5-46A3-9758-D660A09EE7C0} = {591D8590-F104-4D3A-AD0B-B8C825AA66B7}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {362CA084-8ED3-49DF-91CA-BF06EE4A969C}

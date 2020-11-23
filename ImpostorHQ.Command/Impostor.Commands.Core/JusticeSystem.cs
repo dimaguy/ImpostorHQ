@@ -1,16 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Net;
-using System.Text;
+using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 using Impostor.Api.Events.Player;
-using Impostor.Api.Games;
-using Impostor.Api.Games.Managers;
-using Impostor.Commands.Core.DashBoard;
 using Microsoft.Extensions.Logging;
 
 namespace Impostor.Commands.Core
@@ -55,12 +49,18 @@ namespace Impostor.Commands.Core
         /// </summary>
         private void LoadPermanentBans()
         {
+            if (!Directory.Exists(BanFolder))
+            {
+                Directory.CreateDirectory(BanFolder);
+                return;
+            }
             foreach (var file in Directory.GetFiles(BanFolder))
             {
                 if (file.Contains("ban-"))
                 {
                     var report = JsonSerializer.Deserialize<Structures.Report>(File.ReadAllText(file));
                     lock (PermanentBans) PermanentBans.Add(report);
+                    OnBanRead?.Invoke(report);
                 }
             }
 
@@ -109,8 +109,6 @@ namespace Impostor.Commands.Core
                                         ChatInterface.SafeMultiMessage(source.Game,
                                             $"\"{client.Character.PlayerInfo.PlayerName}\" has been permanently banned.",
                                             Structures.BroadcastType.Warning);
-                                        OnPlayerBanned?.Invoke(client.Character.PlayerInfo.PlayerName,
-                                            client.Client.Connection.EndPoint.Address.ToString());
                                     }
                                     else
                                     {
@@ -180,6 +178,7 @@ namespace Impostor.Commands.Core
             lock (PermanentBans)
             {
                 PermanentBans.Add(rep);
+                OnPlayerBanned?.Invoke(rep);
             }
 
             File.WriteAllText(Path.Combine(BanFolder, $"ban-{rep.Target}.json"), JsonSerializer.Serialize(rep));
@@ -261,6 +260,7 @@ namespace Impostor.Commands.Core
                     {
                         PermanentBans.Remove(report);
                         File.Delete(Path.Combine(BanFolder, "ban-" + address + ".json"));
+                        OnPlayerPardoned?.Invoke(report);
                         return true;
                     }
                 }
@@ -319,8 +319,16 @@ namespace Impostor.Commands.Core
             return false;
         }
 
-        public delegate void PlayerBanned(string name, string ipa);
+        public delegate void PlayerBanned(Structures.Report report);
 
         public event PlayerBanned OnPlayerBanned;
+
+        public delegate void PlayerPardoned(Structures.Report report);
+
+        public event PlayerPardoned OnPlayerPardoned;
+
+        public delegate void BanLoaded(Structures.Report rep);
+
+        public event BanLoaded OnBanRead;
     }
 }

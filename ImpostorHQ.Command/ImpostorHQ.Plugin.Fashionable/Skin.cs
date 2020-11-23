@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Text.Json;
+using System.Collections.Generic;
 using Impostor.Api.Innersloth.Customization;
-using Impostor.Commands.Core;
 
 namespace ImpostorHQ.Plugin.Fashionable
 {

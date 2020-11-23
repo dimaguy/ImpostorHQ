@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ImpostorHQ.Plugin.Fashionable
+﻿namespace ImpostorHQ.Plugin.Fashionable
 {
     public class Constants
     {

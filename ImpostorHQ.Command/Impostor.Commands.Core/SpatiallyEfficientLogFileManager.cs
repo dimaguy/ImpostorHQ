@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Dynamic;
 using System.IO;
 using System.Net;
-using System.Reflection.Metadata;
-using System.Text;
 using Impostor.Commands.Core.SELF;
 namespace Impostor.Commands.Core
 {

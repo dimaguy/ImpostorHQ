@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Linq;
 using System.Net;
 using System.Text;
+using System.Linq;
 
 namespace Impostor.Commands.Core.SELF
 {

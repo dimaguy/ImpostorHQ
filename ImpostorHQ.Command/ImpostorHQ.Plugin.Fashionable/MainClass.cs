@@ -1,13 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Impostor.Api.Innersloth;
-using Impostor.Api.Innersloth.Customization;
 using Impostor.Commands.Core;
-using Impostor.Commands.Core.QuantumExtensionDirector;
+using System.Collections.Generic;
 using Impostor.Commands.Core.SELF;
 using Microsoft.Extensions.Logging;
+using Impostor.Commands.Core.QuantumExtensionDirector;
 
 namespace ImpostorHQ.Plugin.Fashionable
 {

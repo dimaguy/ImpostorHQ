@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Net.Sockets;
+using System.Collections.Generic;
 using Impostor.Commands.Core.SELF;
 
 namespace Impostor.Commands.Core.DashBoard
@@ -21,6 +22,7 @@ namespace Impostor.Commands.Core.DashBoard
         public bool Running { get; private set; }
         private WebApiServer ApiServer { get; set; }
         private CsvComposer LogComposer { get; set; }
+        public List<string> InvalidPageHandlers { get; private set; }
         /// <summary>
         /// Creates a new instance of our HTTP server. This is used to inject the HTML client into browsers.
         /// </summary>
@@ -40,11 +42,20 @@ namespace Impostor.Commands.Core.DashBoard
             this.Listener = new TcpListener(IPAddress.Parse(listenInterface),port);
             this.ApiServer = apiServer;
             this.LogComposer = new CsvComposer();
+            this.InvalidPageHandlers = new List<string>();
             Listener.Start();
             //we begin listening and accepting clients.
             Listener.BeginAcceptTcpClient(EndAccept, Listener);
         }
 
+        public void AddInvalidPageHandler(string handler)
+        {
+            lock (InvalidPageHandlers)
+            {
+                InvalidPageHandlers.Add("dashboard/" + handler);
+                InvalidPageHandlers.Add("dashboard\\" + handler);
+            }
+        }
         /// <summary>
         /// This is our async callback, used to accept TCP clients. The code is quite a ride!
         /// </summary>
@@ -124,6 +135,8 @@ namespace Impostor.Commands.Core.DashBoard
                     }
                     else
                     {
+                        List<string> handlers;
+                        lock (InvalidPageHandlers) handlers = InvalidPageHandlers.ToList(); 
                         if (cleanedPath.Contains("players.csv")&&cleanedPath.Contains('?'))
                         {
                             var key = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1);
@@ -190,6 +203,10 @@ namespace Impostor.Commands.Core.DashBoard
                                 }
                             }
 
+                        }
+                        else if (handlers.Contains(cleanedPath))
+                        {
+                            OnSpecialHandlerInvoked?.Invoke(cleanedPath.Replace("dashboard\\","").Replace("dashboard/",""),ns,version,address);
                         }
                         else
                         {
@@ -285,7 +302,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="documentLen">The length of the following data.</param>
         /// <param name="sStatusCode">Status code.</param>
         /// <param name="stream">The transport to write to.</param>
-        private void WriteHeader(string httpVer, string mimeType,int documentLen, string sStatusCode, ref NetworkStream stream)
+        public void WriteHeader(string httpVer, string mimeType,int documentLen, string sStatusCode, ref NetworkStream stream)
         {
             var sb = new StringBuilder();
             sb.Append(httpVer + sStatusCode + "\r\n");
@@ -298,5 +315,8 @@ namespace Impostor.Commands.Core.DashBoard
             stream.Flush();
         }
 
+        public delegate void DelHandlerInvoked(string handler, NetworkStream directTransport, string httpVer, string srcIpAddress);
+
+        public event DelHandlerInvoked OnSpecialHandlerInvoked;
     }
 }

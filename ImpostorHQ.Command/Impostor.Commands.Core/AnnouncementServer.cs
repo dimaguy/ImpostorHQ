@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
-using System.Text;
-using Impostor.Api.Net.Messages;
-using Hazel;
+﻿using Hazel;
+using System;
 using Hazel.Udp;
+using System.IO;
+using System.Net;
 using Impostor.Commands.Core.SELF;
 
 namespace Impostor.Commands.Core

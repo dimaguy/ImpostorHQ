@@ -1,25 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.Drawing;
-using Fleck;
+﻿using Fleck;
+using System;
 using System.IO;
-using System.Linq;
 using System.Net;
-using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.Json;
+using System.Linq;
+using System.Drawing;
+using Impostor.Api.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Impostor.Api.Innersloth;
+using Impostor.Api.Net.Manager;
 using Impostor.Api.Net.Messages;
 using Impostor.Api.Events.Player;
-using Impostor.Api.Innersloth;
-using Impostor.Api.Net;
-using Impostor.Api.Net.Manager;
+using System.Collections.Generic;
+using Impostor.Commands.Core.SELF;
 using Microsoft.Extensions.Logging;
 using Impostor.Commands.Core.DashBoard;
 using Impostor.Commands.Core.QuantumExtensionDirector;
-using Impostor.Commands.Core.SELF;
 
 #region Impostor API Imports
 using Impostor.Api.Games;
@@ -246,9 +243,9 @@ namespace Impostor.Commands.Core
             ApiServer.RegisterCommand(Structures.DashboardCommands.AnnouncementMultiCommand," set <message> => will set that announcement, clear => will clear the message and delete it from the disk.");
         }
 
-        private void PlayerBanned(string username, string IP)
+        private void PlayerBanned(Structures.Report rep)
         {
-            ApiServer.Push($"Player {username} / {IP} was banned permanently.","reportsys",Structures.MessageFlag.ConsoleLogMessage,null);
+            ApiServer.Push($"Player {rep.TargetName} / {rep.Target} was banned permanently.","reportsys",Structures.MessageFlag.ConsoleLogMessage,null);
         }
 
         private void GameEventListener_OnPlayerCommandReceived(string command, string data, IPlayerChatEvent source)

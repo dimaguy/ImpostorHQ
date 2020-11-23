@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading;
-using Impostor.Api.Events.Managers;
-using Impostor.Api.Games.Managers;
+﻿using System.Threading;
 using Impostor.Api.Net.Manager;
 using Impostor.Api.Net.Messages;
-using Impostor.Commands.Core.DashBoard;
+using Impostor.Api.Games.Managers;
+using Impostor.Api.Events.Managers;
 using Microsoft.Extensions.Logging;
+using Impostor.Commands.Core.DashBoard;
 
 namespace Impostor.Commands.Core.QuantumExtensionDirector
 {

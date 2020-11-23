@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 using Impostor.Api.Net.Messages;
-using Microsoft.Extensions.Configuration;
+using System.Collections.Generic;
 
 namespace Impostor.Commands.Core
 {
@@ -385,6 +383,7 @@ namespace Impostor.Commands.Core
                 messageWriter.EndMessage();
                 return messageWriter;
             }
+
             internal static class MessageFlags
             {
                 public const byte HostGame = 0;
