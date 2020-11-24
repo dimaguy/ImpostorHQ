@@ -38,7 +38,7 @@ steps:
     Contents: '**/ImpostorHQ.Plugin.Fashionable.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
     flattenFolders: true
- - task: CopyFiles@2
+- task: CopyFiles@2
   inputs:
     Contents: '**/ImpostorHQ.Plugin.HallOfShame.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
