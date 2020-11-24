@@ -21,4 +21,3 @@ steps:
   inputs:
     command: 'build'
     projects: '**/*.csproj'
-    arguments: '-unsafe'
