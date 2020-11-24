@@ -1,8 +1,3 @@
-# .NET Desktop
-# Build and run tests for .NET Desktop or Windows classic desktop solutions.
-# Add steps that publish symbols, save build artifacts, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/apps/windows/dot-net
-
 trigger:
 - main
 
@@ -15,10 +10,61 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
-- task: NuGetToolInstaller@1
-
+- task: UseDotNet@2
+  displayName: 'Get .NET Core 5 sdk'
+  inputs:
+    version: 5.x
+      
 - task: DotNetCoreCLI@2
+  displayName: ".Net Restore"
+  inputs:
+    command: 'restore'
+    projects: '**/*.csproj'
+    arguments: '--configurations $(buildConfiguration)'
+    
+- task: DotNetCoreCLI@2
+  displayName: ".Net Build"
   inputs:
     command: 'build'
     projects: '**/*.csproj'
-    arguments: '-unsafe'
+    arguments: '--configurations $(buildConfiguration) --no-restore'
+- task: CopyFiles@2
+  inputs:
+    Contents: '**/Impostor.Commands.Core.dll'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorCommandsCore'
+    flattenFolders: true
+- task: CopyFiles@2
+  inputs:
+    Contents: '**/ImpostorHQ.Plugin.Fashionable.dll'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+    flattenFolders: true
+ - task: CopyFiles@2
+  inputs:
+    Contents: '**/ImpostorHQ.Plugin.HallOfShame.dll'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+    flattenFolders: true
+- task: CopyFiles@2
+  inputs:
+    Contents: '**/Plugin.Test.dll'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+    flattenFolders: true
+- task: CopyFiles@2
+  inputs:
+    Contents: '**/LogParser.exe'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/LogParser'
+    flattenFolders: true
+- task: CopyFiles@2
+  inputs:
+    Contents: '**/ImpostorHQ.Plugin.Fashionable.Designer.exe'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/FashionableDesigner'
+    flattenFolders: true
+
+- publish: '$(Build.ArtifactStagingDirectory)/ImpostorCommandsCore'
+  artifact: ImpostorCommandsCore
+- publish: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+  artifact: ImpostorHQPlugins
+- publish: '$(Build.ArtifactStagingDirectory)/LogParser'
+  artifact: LogParser
+- publish: '$(Build.ArtifactStagingDirectory)/FashionableDesigner'
+  artifact: FashionableDesigner
+
