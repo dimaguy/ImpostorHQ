@@ -20,6 +20,6 @@ jobs:
     - name: Install dependencies
       run: dotnet restore
     - name: Build
-      run: dotnet build --configuration Release --no-restore ImpostorHQ.Command/ImpostorHQ.Command.sln
+      run: dotnet build --configuration Release --no-restore /ImpostorHQ.Command/ImpostorHQ.Command.sln
     - name: Test
-      run: dotnet test --no-restore --verbosity normal ImpostorHQ.Command/ImpostorHQ.Command.sln
+      run: dotnet test --no-restore --verbosity normal /ImpostorHQ.Command/ImpostorHQ.Command.sln
