@@ -20,14 +20,14 @@ steps:
   inputs:
     command: 'restore'
     projects: '**/*.csproj'
-    arguments: '--configurations $(buildConfiguration)'
+    arguments: '--configuration $(buildConfiguration)'
     
 - task: DotNetCoreCLI@2
   displayName: ".Net Build"
   inputs:
     command: 'build'
     projects: '**/*.csproj'
-    arguments: '--configurations $(buildConfiguration) --no-restore'
+    arguments: '--configuration $(buildConfiguration) --no-restore'
 - task: CopyFiles@2
   inputs:
     Contents: '**/Impostor.Commands.Core.dll'
