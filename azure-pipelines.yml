@@ -10,7 +10,10 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
-
+- task: UseDotNet@2
+  displayName: 'Get .NET Core 3 sdk'
+  inputs:
+    version: 3.x
 - task: DotNetCoreCLI@2
   displayName: ".Net Restore"
   inputs:
