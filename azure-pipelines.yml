@@ -20,24 +20,4 @@ steps:
 - task: DotNetCoreCLI@2
   inputs:
     command: 'build'
-    projects: 'Impostor.Commands.Core\Impostor.Commands.Core.csproj'
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'Format.SEL\Format.SEL.csproj'
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'ImpostorHQ.Plugin.Fashionable\ImpostorHQ.Plugin.Fashionable.csproj'
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'ImpostorHQ.Plugin.HallOfShame\ImpostorHQ.Plugin.HallOfShame.csproj'
- - task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'LogParser\LogParser.csproj'
-  - task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'Plugin.Test\Plugin.Test.csproj'
+    projects: '**/*.csproj'
