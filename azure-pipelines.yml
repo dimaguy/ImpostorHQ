@@ -11,11 +11,13 @@ variables:
 
 steps:
 - task: NuGetCommand@2
+  displayName: Nuget Restore
   inputs:
     command: 'restore'
     restoreSolution: '**/ImpostorHQ.Plugin.Fashionable.Designer.csproj'
     feedsToUse: 'select'
 - task: MSBuild@1
+  displayName: MS Build
   inputs:
     solution: '**/ImpostorHQ.Plugin.Fashionable.Designer.csproj'
     configuration: '$(buildConfiguration)'
