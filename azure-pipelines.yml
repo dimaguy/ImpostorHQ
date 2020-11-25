@@ -99,7 +99,7 @@ steps:
 
 - publish: '$(Build.ArtifactStagingDirectory)/LogParser'
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-  artifact: 
+  artifact: LogParser
   
 - publish: '$(Build.ArtifactStagingDirectory)/FashionableDesigner'
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
