@@ -19,7 +19,7 @@ steps:
   displayName: ".Net Restore"
   inputs:
     command: 'restore'
-    projects: '**/*.sln'
+    projects: '**/*!ImpostorHQ.Plugin.Fashionable.Designer.sln'
     arguments: '--configuration $(buildConfiguration)'
     
 - task: DotNetCoreCLI@2
