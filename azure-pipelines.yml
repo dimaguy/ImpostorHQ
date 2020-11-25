@@ -52,6 +52,7 @@ steps:
       !**/ImpostorHQ.Plugin.Fashionable.Designer.csproj
     arguments: '--configuration $(buildConfiguration) --no-restore'
 - task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   inputs:
     Contents: '**/Impostor.Commands.Core.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorCommandsCore'
