@@ -10,23 +10,22 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
-- task: UseDotNet@2
-  displayName: 'Get .NET Core 3 sdk'
-  inputs:
-    version: 3.x
-
 - task: DotNetCoreCLI@2
   displayName: ".Net Restore"
   inputs:
     command: 'restore'
-    projects: '**/*!ImpostorHQ.Plugin.Fashionable.Designer.sln'
+    projects: |
+      **/*.csproj
+      !**/ImpostorHQ.Plugin.Fashionable.Designer.csproj
     arguments: '--configuration $(buildConfiguration)'
     
 - task: DotNetCoreCLI@2
   displayName: ".Net Build"
   inputs:
     command: 'build'
-    projects: '**/*.csproj'
+    projects: |
+      **/*.csproj
+      !**/ImpostorHQ.Plugin.Fashionable.Designer.csproj
     arguments: '--configuration $(buildConfiguration) --no-restore'
 - task: CopyFiles@2
   inputs:
