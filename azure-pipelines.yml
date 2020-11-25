@@ -1,5 +1,18 @@
 trigger:
-- main
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+    - ImpostorHQ.Dashboard/*
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+    - ImpostorHQ.Dashboard/*
 
 pool:
   vmImage: 'windows-latest'
@@ -44,37 +57,49 @@ steps:
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorCommandsCore'
     flattenFolders: true
 - task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   inputs:
     Contents: '**/ImpostorHQ.Plugin.Fashionable.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
     flattenFolders: true
 - task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   inputs:
     Contents: '**/ImpostorHQ.Plugin.HallOfShame.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
     flattenFolders: true
 - task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   inputs:
     Contents: '**/Plugin.Test.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
     flattenFolders: true
 - task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   inputs:
     Contents: '**/LogParser.exe'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/LogParser'
     flattenFolders: true
 - task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   inputs:
     Contents: '**/ImpostorHQ.Plugin.Fashionable.Designer.exe'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/FashionableDesigner'
     flattenFolders: true
 
 - publish: '$(Build.ArtifactStagingDirectory)/ImpostorCommandsCore'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   artifact: ImpostorCommandsCore
+
 - publish: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   artifact: ImpostorHQPlugins
+
 - publish: '$(Build.ArtifactStagingDirectory)/LogParser'
-  artifact: LogParser
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  artifact: 
+  
 - publish: '$(Build.ArtifactStagingDirectory)/FashionableDesigner'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   artifact: FashionableDesigner
 
