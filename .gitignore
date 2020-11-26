@@ -345,3 +345,5 @@ Server.Test
 Server.Test/
 /ImpostorHQ.Command/ImpostorHQ.TestPlugins.antiSync
 /ImpostorHQ.Command/SupremeSyncServer
+/ImpostorHQ.Command/ImpostorHQ.GameMode.Timeframe
+/ImpostorHQ.Command/Optimization

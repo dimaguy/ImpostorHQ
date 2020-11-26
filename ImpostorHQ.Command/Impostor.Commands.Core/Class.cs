@@ -30,7 +30,7 @@ namespace Impostor.Commands.Core
     [ImpostorPlugin("ImpostorHQ","Impostor HeadQuarters API","anti, Dimaguy","0.0.4 beta")]
     public class Class : PluginBase
     {
-        public const int PluginApiVersion = 1;
+        public const int PluginApiVersion = 3;
 
         #region Members
         //indicates that the plugin is active.
@@ -74,6 +74,7 @@ namespace Impostor.Commands.Core
         public QuodEratDemonstrandum.QuiteElegantDirectory QED{ get; private set; }
         public PluginLoader PluginLoader { get; private set; }
         public QuiteExtendableDirectInterface QEDi { get; set; }
+        public QuiteEffectiveDetector QEDetector { get; private set; }
         #endregion
         /// <summary>
         /// This constructor will be 'injected' with the required references by the plugin API.
@@ -124,6 +125,7 @@ namespace Impostor.Commands.Core
             AnnouncementManager.Shutdown();
             QED.Shutdown();
             PluginLoader.Shutdown();
+            QEDetector.Shutdown();
             return default;
         }
         #endregion
@@ -166,12 +168,13 @@ namespace Impostor.Commands.Core
             }
 
             this.LogManager = new SpatiallyEfficientLogFileManager("hqlogs");
+            QEDetector = new QuiteEffectiveDetector(250);
             InitializeInterfaces();
             InitializeServers();
             HighCourt = new JusticeSystem(BanFolder,ChatCommandCfg.ReportsRequiredForBan,Logger,ChatInterface,this);
             HighCourt.OnPlayerBanned += PlayerBanned;
             //after we initialize everything, we can load the plugins.
-            QEDi = new QuiteExtendableDirectInterface()
+            QEDi = new QuiteExtendableDirectInterface(this)
             {
                 Logger = Logger,
                 MainThread = MainThread,
@@ -189,11 +192,11 @@ namespace Impostor.Commands.Core
                 LogManager = LogManager,
                 AnnouncementServer = AnnouncementManager,
                 QED = QED,
+                QEDetector = QEDetector,
                 UnsafeDirectReference = this
             };
             this.PluginLoader = new PluginLoader(PluginFolderPath, QEDi, PluginApiVersion);
             PluginLoader.LoadPlugins();
-
         }
 
         private void InitializeInterfaces()
@@ -219,8 +222,8 @@ namespace Impostor.Commands.Core
             var error404Html = File.ReadAllText(Path.Combine("dashboard", "404.html"));
             var errorMimeHtml = File.ReadAllText(Path.Combine("dashboard", "mime.html"));
             //we initialize our servers and set up the events.
-            this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys.ToArray(), Logger,GameManager,this);
-            this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml,this,ApiServer);
+            this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys.ToArray(), Logger,GameManager,this,QEDetector);
+            this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml,this,ApiServer,QEDetector);
             Logger.LogInformation($"ImpostorHQ : API Server listening on: {Configuration.ListenInterface}:{Configuration.APIPort}. Dashboard listening on: {Configuration.ListenInterface}:{Configuration.WebsitePort}/client.html");
             this.AnnouncementManager = new AnnouncementServer(this,"configs");
             ApiServer.OnMessageReceived += DashboardCommandReceived;
@@ -887,6 +890,11 @@ namespace Impostor.Commands.Core
                         break;
 
                     }
+                    default:
+                        OnExternalCommandInvoked?.Invoke(cmd,message.Text,isSingle,client);
+                        isSingle = true; //inhibit 'Command executed successfully'.
+                        break;
+                    
                 }
 
                 if (commandHandled)
@@ -1048,5 +1056,10 @@ namespace Impostor.Commands.Core
         {
             Logger.LogInformation("ImpostorHQ Plugin System : " + message);
         }
+
+        public delegate void DelDashboardCommandInvoked(string command, string data, bool single,
+            IWebSocketConnection source);
+
+        public event DelDashboardCommandInvoked OnExternalCommandInvoked;
     }
 }

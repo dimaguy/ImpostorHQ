@@ -12,6 +12,7 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         public Type TargetType { get; private set; }
         public uint ApiVersion { get; private set; }
         public string FolderPath { get; private set; }
+        private string[] Stores { get; set; }
         public readonly QuiteExtendableDirectInterface Master;
         public PluginLoader(string folderPath, QuiteExtendableDirectInterface master, uint version)
         {
@@ -52,9 +53,13 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
                     Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded \"{x.Name}\" by \"{x.Author}\"");
                 }
             }
+            Stores = new string[Plugins.Count];
+            int index = 0;
             foreach (var plugin in Plugins)
             {
-                plugin.Load(Master, new PluginFileSystem(Path.Combine("hqplugins", "data"), plugin.Name));
+                var pfs = new PluginFileSystem(Path.Combine("hqplugins", "data"),plugin.Name, this);
+                plugin.Load(Master, pfs);
+                Stores[index] = pfs.Store;
             }
             Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded {Plugins.Count} plugins.");
         }
@@ -66,5 +71,11 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
                 plugin.Destroy();
             }
         }
+
+        /// <summary>
+        /// Gets all active stores. It is equivalent to the function found in the PluginFileSystem class.
+        /// </summary>
+        /// <returns></returns>
+        public string[] GetStores() => Stores;
     }
 }

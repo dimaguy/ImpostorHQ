@@ -1,13 +1,18 @@
-﻿using Impostor.Api.Net;
+﻿using System;
+using Impostor.Api.Net;
 using Impostor.Commands.Core;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
+using System.Reflection.Metadata.Ecma335;
 using Impostor.Commands.Core.QuantumExtensionDirector;
+using Microsoft.Extensions.Logging;
 
 namespace Plugin.Test
 {
     public class MainClass : IPlugin
     {
-        public uint HqVersion => 1;
+        public uint HqVersion => 3;
         public string Name => "Test / Example plugin.";
         public string Author => "anti";
         public QuiteExtendableDirectInterface PluginBase { get; private set; }
@@ -21,18 +26,21 @@ namespace Plugin.Test
         {
             PluginBase.UnsafeDirectReference.ConsolePluginStatus("Greetings from the test plugin!");
             PluginBase.ApiServer.RegisterCommand("/greet", "=> A test command, added by the test plugin.");
+            //this is a 'low level' hook, showing how to make your own handler.
+            //Please use the default OnDashboardCommandReceived event if your structure corresponds to the default one.
             PluginBase.ApiServer.OnMessageReceived += (message, source) =>
             {
                 if (message.Text.Equals("/greet"))
                 {
-                    PluginBase.ApiServer.PushTo("Hi there! This is the test plugin.", "TestPlugin", Structures.MessageFlag.ConsoleLogMessage, source);
+                    PluginBase.ApiServer.PushTo("Hi there! This is the test plugin.", 
+                        "TestPlugin", Structures.MessageFlag.ConsoleLogMessage, source);
                 }
             };
-
             PluginBase.ChatInterface.RegisterCommand("/test");
             PluginBase.ChatInterface.RegisterCommand("/slap");
             PluginBase.ChatInterface.RegisterCommand("/kill");
-
+            PluginBase.ChatInterface.RegisterCommand("/speed");
+            PluginBase.ChatInterface.RegisterCommand("/freeze");
             PluginBase.ChatInterface.OnCommandInvoked += async (command, data, player) =>
             {
                 if (command.Equals("/test"))
@@ -68,6 +76,29 @@ namespace Plugin.Test
                     }
                     PluginBase.ChatInterface.SafeMultiMessage(player.Game, "Player not found.", Structures.BroadcastType.Information, destination: player.ClientPlayer);
 
+                }
+                else if (command.Equals("/speed"))
+                {
+                    if (player == null || player.ClientPlayer.Character == null|| player.ClientPlayer.Client.Connection==null) return;
+                    var options = player.Game.Options;
+                    var before = player.Game.Options.PlayerSpeedMod;
+                    options.PlayerSpeedMod = 0.000001f;
+                    var packet = PluginBase.ChatInterface.Generator.GenerateDataPacket(options, player.Game.Code.Value,
+                        player.ClientPlayer.Character.NetId);
+                    options.PlayerSpeedMod = before;
+                    await player.ClientPlayer.Client.Connection.SendAsync(packet).ConfigureAwait(false);
+
+                }
+                else if (command.Equals("/freeze"))
+                {
+                    if (player == null || player.ClientPlayer.Character == null || player.ClientPlayer.Client.Connection == null) return;
+                    var options = player.Game.Options;
+                    var before = player.Game.Options.PlayerSpeedMod;
+                    options.PlayerSpeedMod = 0f;
+                    var packet = PluginBase.ChatInterface.Generator.GenerateDataPacket(options, player.Game.Code.Value,
+                        player.ClientPlayer.Character.NetId);
+                    options.PlayerSpeedMod = before;
+                    await player.ClientPlayer.Client.Connection.SendAsync(packet).ConfigureAwait(false);
                 }
             };
         }

@@ -1,10 +1,13 @@
 ﻿using System;
+using System.Buffers;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Net.Sockets;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Impostor.Commands.Core.SELF;
 
 namespace Impostor.Commands.Core.DashBoard
@@ -13,6 +16,7 @@ namespace Impostor.Commands.Core.DashBoard
     {
         //  our main listener.
         private TcpListener Listener { get; set; }
+        private ArrayPool<byte> ReceiveBufferPool { get; set; }
         private Impostor.Commands.Core.Class Interface { get; set; }
         /// <summary>
         /// The constant webpages. They are read from the disk and always remain constant.
@@ -23,6 +27,8 @@ namespace Impostor.Commands.Core.DashBoard
         private WebApiServer ApiServer { get; set; }
         private CsvComposer LogComposer { get; set; }
         public List<string> InvalidPageHandlers { get; private set; }
+        public QuiteEffectiveDetector QEDetector { get; private set; }
+        public ConcurrentBag<string> AttackerAddresses { get; private set; }
         /// <summary>
         /// Creates a new instance of our HTTP server. This is used to inject the HTML client into browsers.
         /// </summary>
@@ -31,9 +37,10 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="document">The webpage.</param>
         /// <param name="document404Error">An HTML document used to indicate 404 errors.</param>
         /// <param name="documentMimeError">An HTML document used to indicate that a type of data is unsupported. This should never happen under normal circumstances, as the dashboard only uses supported file types.</param>
-        public HttpServer(string listenInterface, ushort port,string document,string document404Error,string documentMimeError, Impostor.Commands.Core.Class Interface,WebApiServer apiServer)
+        public HttpServer(string listenInterface, ushort port,string document,string document404Error,string documentMimeError, Impostor.Commands.Core.Class Interface,WebApiServer apiServer, QuiteEffectiveDetector dosDetector)
         {
             //utf8 is standard.
+            this.ReceiveBufferPool = ArrayPool<byte>.Shared;
             this.Document = Encoding.UTF8.GetBytes(document);
             this.Document404Error = Encoding.UTF8.GetBytes(document404Error);
             this.DocumentTypeNotSupported = Encoding.UTF8.GetBytes(documentMimeError);
@@ -43,11 +50,14 @@ namespace Impostor.Commands.Core.DashBoard
             this.ApiServer = apiServer;
             this.LogComposer = new CsvComposer();
             this.InvalidPageHandlers = new List<string>();
+            this.QEDetector = dosDetector;
+            this.AttackerAddresses = new ConcurrentBag<string>();
             Listener.Start();
             //we begin listening and accepting clients.
             Listener.BeginAcceptTcpClient(EndAccept, Listener);
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddInvalidPageHandler(string handler)
         {
             lock (InvalidPageHandlers)
@@ -65,14 +75,27 @@ namespace Impostor.Commands.Core.DashBoard
             var listener = (TcpListener) ar.AsyncState;
             if (listener == null) return;
             string address = "[BEFORE ACCEPT]";
-            if(Running) listener.BeginAcceptTcpClient(EndAccept, listener);
+            byte[] receiveBuffer = null;
+            if (Running) listener.BeginAcceptTcpClient(EndAccept, listener);
             try
             {
                 var client = listener.EndAcceptTcpClient(ar);
-                var ns = client.GetStream();
                 address = (((IPEndPoint) client.Client.RemoteEndPoint).Address).ToString();
+
+                if(QEDetector.IsAttacking(((IPEndPoint)(client.Client.RemoteEndPoint)).Address))
+                {
+                    if (!AttackerAddresses.Contains(address))
+                    {
+                        ApiServer.Push(
+                            $"Under denial of service attack from: {address}! The address has been booted from accessing the HTTP server, for 5 minutes. Please take action!",
+                            "-HIGHEST PRIORITY/CRITICAL-", Structures.MessageFlag.ConsoleLogMessage);
+                        AttackerAddresses.Add(address);
+                    }
+                    return;
+                }
+                receiveBuffer = ReceiveBufferPool.Rent(1024); //should not give us trouble.
+                var ns = client.GetStream();
                 var startPos = 0;
-                var receiveBuffer = new byte[1024]; //should not give us trouble.
 
                 //maybe i will use 'read' at some point...
                 var read = ns.Read(receiveBuffer, 0, receiveBuffer.Length);
@@ -80,33 +103,40 @@ namespace Impostor.Commands.Core.DashBoard
                 if (strData.Substring(0, 3) != "GET")
                 {
                     //only GET is allowed.
-                    WriteHeader("HTTP/1.1", "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented", ref ns);
+                    WriteHeader("HTTP/1.1", "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented",
+                        ref ns);
                     ns.Write(DocumentTypeNotSupported, 0, DocumentTypeNotSupported.Length);
                     ns.Dispose();
                     client.Dispose();
                     return;
                 }
+
                 // Extract the request.
-                startPos = strData.IndexOf("HTTP", 1,StringComparison.InvariantCultureIgnoreCase);
+                startPos = strData.IndexOf("HTTP", 1, StringComparison.InvariantCultureIgnoreCase);
                 var version = strData.Substring(startPos, 8);
                 var request = strData.Substring(0, startPos - 1);
                 request = request.Replace("\\", "/");
-                if ((request.IndexOf(".",StringComparison.InvariantCultureIgnoreCase) < 1) && (!request.EndsWith("/")))
+                if ((request.IndexOf(".", StringComparison.InvariantCultureIgnoreCase) < 1) && (!request.EndsWith("/")))
                 {
                     request += "/";
                 }
-                startPos = request.LastIndexOf("/",StringComparison.CurrentCultureIgnoreCase) + 1;
+
+                startPos = request.LastIndexOf("/", StringComparison.CurrentCultureIgnoreCase) + 1;
                 var file = request.Substring(startPos);
-                var directory = request.Substring(request.IndexOf("/",StringComparison.InvariantCultureIgnoreCase), request.LastIndexOf("/",StringComparison.InvariantCultureIgnoreCase) - 3);
+                var directory = request.Substring(request.IndexOf("/", StringComparison.InvariantCultureIgnoreCase),
+                    request.LastIndexOf("/", StringComparison.InvariantCultureIgnoreCase) - 3);
                 //COMPARISION : If the path is clean, move on to the next comparision. If not, send the error.
                 if (!directory.Contains("..")) //   Only root ('/') is allowed.
                 {
                     var cleanedPath = GetLocalPath(file, directory);
-                    if (!(cleanedPath.Contains("players.csv")||cleanedPath.Contains("logs")) && cleanedPath.Contains("?")) //you are angering me dima
+                    if (!(cleanedPath.Contains("players.csv") || cleanedPath.Contains("logs")) &&
+                        cleanedPath.Contains("?")) //you are angering me dima
                     {
-                        cleanedPath = cleanedPath.Remove(cleanedPath.IndexOf("?",StringComparison.InvariantCultureIgnoreCase),
-                            cleanedPath.Length - cleanedPath.IndexOf("?",StringComparison.InvariantCultureIgnoreCase));
+                        cleanedPath = cleanedPath.Remove(
+                            cleanedPath.IndexOf("?", StringComparison.InvariantCultureIgnoreCase),
+                            cleanedPath.Length - cleanedPath.IndexOf("?", StringComparison.InvariantCultureIgnoreCase));
                     }
+
                     //COMPARISION : If file exists, move on to the next comparision. If not, send the error.
                     if (File.Exists(cleanedPath))
                     {
@@ -117,33 +147,34 @@ namespace Impostor.Commands.Core.DashBoard
                             //COMPARISION : Send client from memory or an unloaded file from the disk.
                             if (cleanedPath.Contains("client.html"))
                             {
-                                WriteHeader(version,"text/html",Document.Length," 200 OK",ref ns);
-                                ns.Write(Document,0,Document.Length);
+                                WriteHeader(version, "text/html", Document.Length, " 200 OK", ref ns);
+                                ns.Write(Document, 0, Document.Length);
                             }
                             else
                             {
                                 var document = File.ReadAllBytes(cleanedPath);
-                                WriteHeader(version,mimeType,document.Length," 200 OK",ref ns);
-                                ns.Write(document,0,document.Length);
+                                WriteHeader(version, mimeType, document.Length, " 200 OK", ref ns);
+                                ns.Write(document, 0, document.Length);
                             }
                         }
                         else
                         {
-                            WriteHeader(version, "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented", ref ns);
+                            WriteHeader(version, "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented",
+                                ref ns);
                             ns.Write(DocumentTypeNotSupported, 0, DocumentTypeNotSupported.Length);
                         }
                     }
                     else
                     {
                         List<string> handlers;
-                        lock (InvalidPageHandlers) handlers = InvalidPageHandlers.ToList(); 
-                        if (cleanedPath.Contains("players.csv")&&cleanedPath.Contains('?'))
+                        lock (InvalidPageHandlers) handlers = InvalidPageHandlers.ToList();
+                        if (cleanedPath.Contains("players.csv") && cleanedPath.Contains('?'))
                         {
                             var key = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1);
-                            if(ApiServer.CheckKey(key))
+                            if (ApiServer.CheckKey(key))
                             {
                                 var response = Encoding.UTF8.GetBytes(Interface.CompilePlayers());
-                                WriteHeader(version, "text/csv", (int)response.Length, " 200 OK", ref ns);
+                                WriteHeader(version, "text/csv", (int) response.Length, " 200 OK", ref ns);
                                 ns.Write(response, 0, response.Length);
                                 ns.Flush();
                                 //ApiServer.Push($"Players listed by: {address}, with key : {key}.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage);
@@ -153,14 +184,15 @@ namespace Impostor.Commands.Core.DashBoard
                                 var data = Encoding.UTF8.GetBytes(
                                     "<h1>You have entered an invalid key. Please stop trying to break into our system!</h1>");
                                 WriteHeader(version, "text/html", data.Length, " 200 OK", ref ns);
-                                ns.Write(data,0,data.Length);
+                                ns.Write(data, 0, data.Length);
                             }
 
                         }
                         else if (cleanedPath.Contains("logs.csv") && cleanedPath.Contains('?'))
                         {
                             var requestData = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1).Split('&');
-                            if (requestData.Length == 2 && !string.IsNullOrEmpty(requestData[0])&& !string.IsNullOrEmpty(requestData[1]))
+                            if (requestData.Length == 2 && !string.IsNullOrEmpty(requestData[0]) &&
+                                !string.IsNullOrEmpty(requestData[1]))
                             {
                                 var key = requestData[0];
                                 if (!ApiServer.CheckKey(key))
@@ -172,7 +204,8 @@ namespace Impostor.Commands.Core.DashBoard
                                 }
                                 else
                                 {
-                                    var requestedLog = Path.Combine("hqlogs", Path.GetFileNameWithoutExtension(requestData[1]) + ".self");
+                                    var requestedLog = Path.Combine("hqlogs",
+                                        Path.GetFileNameWithoutExtension(requestData[1]) + ".self");
                                     var logs = Interface.LogManager.GetLogNames();
                                     if (!logs.Contains(requestedLog))
                                     {
@@ -191,9 +224,10 @@ namespace Impostor.Commands.Core.DashBoard
                                             lock (Interface.LogManager.FileLock)
                                             {
                                                 data = new byte[fs.Length];
-                                                fs.Read(data, 0, (int)fs.Length);
+                                                fs.Read(data, 0, (int) fs.Length);
                                             }
                                         }
+
                                         //i am not doing it directly off the stream so i don't lock the manager for too long...
                                         //should not be a problem, logs will be quite small.
                                         var logData = GetCsv(data);
@@ -206,7 +240,8 @@ namespace Impostor.Commands.Core.DashBoard
                         }
                         else if (handlers.Contains(cleanedPath))
                         {
-                            OnSpecialHandlerInvoked?.Invoke(cleanedPath.Replace("dashboard\\","").Replace("dashboard/",""),ns,version,address);
+                            OnSpecialHandlerInvoked?.Invoke(
+                                cleanedPath.Replace("dashboard\\", "").Replace("dashboard/", ""), ns, version, address);
                         }
                         else
                         {
@@ -220,13 +255,19 @@ namespace Impostor.Commands.Core.DashBoard
                     WriteHeader(version, "text/html", Document404Error.Length, " 404 Not Found", ref ns);
                     ns.Write(Document404Error, 0, Document404Error.Length);
                 }
+
                 ns.Dispose();
                 client.Dispose();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 //                  *shutting down
-                if(!address.Equals("[BEFORE ACCEPT]")) Interface.LogManager.LogError($"SRC: {address}: {ex.ToString()}", Shared.ErrorLocation.HttpServer);
+                if (!address.Equals("[BEFORE ACCEPT]"))
+                    Interface.LogManager.LogError($"SRC: {address}: {ex.ToString()}", Shared.ErrorLocation.HttpServer);
+            }
+            finally
+            {
+                if(receiveBuffer!=null)ReceiveBufferPool.Return(receiveBuffer);
             }
             
         }

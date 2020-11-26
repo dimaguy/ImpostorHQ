@@ -14,7 +14,7 @@ namespace ImpostorHQ.Plugin.HallOfShame
 
         public string Author => "anti";
 
-        public uint HqVersion => 1;
+        public uint HqVersion => 3;
 
         public QuiteExtendableDirectInterface Interface { get; private set; }
         public string WebpageDir { get; private set; }

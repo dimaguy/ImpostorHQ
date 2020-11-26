@@ -5,6 +5,7 @@ using Impostor.Api.Games;
 using System.Threading.Tasks;
 using Impostor.Api.Net.Messages;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Impostor.Api.Events.Player;
 using Microsoft.Extensions.Logging;
 
@@ -49,6 +50,7 @@ namespace Impostor.Commands.Core
             }
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string GenerateDocs()
         {
             var str = "ImpostorHQ Commands: ";
@@ -59,7 +61,7 @@ namespace Impostor.Commands.Core
 
             return str;
         }
-        #pragma warning disable
+#pragma warning disable
         /// <summary>
         /// This function is used to broadcast a chat message to a specific lobby.
         /// </summary>
@@ -67,6 +69,7 @@ namespace Impostor.Commands.Core
         /// <param name="message">The message to broadcast.</param>
         /// <param name="messageType">The type of broadcast message. This affects the color of the in-game source.</param>
         /// <param name="src">The source of the message, that will appear in-game.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public async void Broadcast(IGame game, string message, Structures.BroadcastType messageType, string src)
         {
             var colorName = string.Empty;
@@ -113,7 +116,7 @@ namespace Impostor.Commands.Core
             }
         }
 
-        #pragma warning disable CS1998
+#pragma warning disable CS1998
         /// <summary>
         /// This will be used to send a message to a specific player.
         /// </summary>
@@ -121,6 +124,7 @@ namespace Impostor.Commands.Core
         /// <param name="message">The message to send.</param>
         /// <param name="source">The source of the message.</param>
         /// <param name="type">The type of the message.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public async void PrivateMessage(IClientPlayer player,string message,string source, Structures.BroadcastType type)
         {
             var coloredName = string.Empty;
@@ -171,6 +175,7 @@ namespace Impostor.Commands.Core
         /// <param name="message">The message to broadcast.</param>
         /// <param name="type">The type of broadcast.</param>
         /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public async Task SafeAsyncBroadcast(IGame game, string message, Structures.BroadcastType type)
         #pragma warning restore CS1998
         {
@@ -195,6 +200,7 @@ namespace Impostor.Commands.Core
         /// <param name="broadcastType">The type of message.</param>
         /// <param name="source">The source player name (can be anything) of the message.</param>
         /// <param name="destination">(Only assign for directional messages) the recipient of the message.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SafeMultiMessage(IGame game, string message, Structures.BroadcastType broadcastType, string source = "(server)", IClientPlayer destination = null)
         {
             try
@@ -216,12 +222,7 @@ namespace Impostor.Commands.Core
             }
         }
 
-        public void SendMessage()
-        {
-            
-        }
-        
-        #pragma warning restore
+#pragma warning restore
 
         /// <summary>
         /// Use this on any chat event. If a command is registered, the OnCommandInvoked event will be fired.

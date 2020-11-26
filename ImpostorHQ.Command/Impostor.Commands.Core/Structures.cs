@@ -1,8 +1,10 @@
 ﻿using System;
 using System.IO;
 using System.Text.Json;
+using Impostor.Api.Innersloth;
 using Impostor.Api.Net.Messages;
 using System.Collections.Generic;
+using Hazel;
 
 namespace Impostor.Commands.Core
 {
@@ -384,6 +386,39 @@ namespace Impostor.Commands.Core
                 return messageWriter;
             }
 
+            public IMessageWriter GenerateDataPacket(GameOptionsData data, int game, uint netId)
+            {
+                var writer = Provider.Get(MessageType.Reliable);
+                writer.StartMessage(Api.Net.Messages.MessageFlags.GameData);
+                writer.Write(game);
+                writer.StartMessage((byte)GameDataType.RpcFlag);
+                writer.WritePacked(netId);
+                writer.Write((byte)Structures.RpcCalls.SyncSettings);
+                using(var stream = new MemoryStream())
+                using (BinaryWriter bWriter = new BinaryWriter(stream))
+                {
+                    data.Serialize(bWriter,4);
+                    writer.WriteBytesAndSize(stream.ToArray());
+                }
+                writer.EndMessage();
+                writer.EndMessage();
+                return writer;
+            }
+
+            public IMessageWriter GenerateNameChangePacket(string name, uint netId, int gameCode)
+            {
+                var messageWriter = Provider.Get(MessageType.Reliable);
+                messageWriter.StartMessage(Api.Net.Messages.MessageFlags.GameData);
+                messageWriter.Write(gameCode);
+                messageWriter.StartMessage((byte)GameDataType.RpcFlag);
+                messageWriter.WritePacked(netId);
+                messageWriter.Write((byte)Structures.RpcCalls.SetName);
+                messageWriter.Write(name);
+                messageWriter.EndMessage();
+                messageWriter.EndMessage();
+                return messageWriter;
+            }
+
             internal static class MessageFlags
             {
                 public const byte HostGame = 0;
@@ -403,6 +438,7 @@ namespace Impostor.Commands.Core
                 public const byte GetGameList = 9;
                 public const byte GetGameListV2 = 16;
             }
+            
             public enum GameDataType : byte
             {
                 RpcFlag = 2,

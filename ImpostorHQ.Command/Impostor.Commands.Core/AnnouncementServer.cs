@@ -3,6 +3,7 @@ using System;
 using Hazel.Udp;
 using System.IO;
 using System.Net;
+using System.Runtime.CompilerServices;
 using Impostor.Commands.Core.SELF;
 
 namespace Impostor.Commands.Core

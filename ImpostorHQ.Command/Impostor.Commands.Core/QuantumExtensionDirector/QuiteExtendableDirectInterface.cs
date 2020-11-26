@@ -1,4 +1,6 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
+using Fleck;
 using Impostor.Api.Net.Manager;
 using Impostor.Api.Net.Messages;
 using Impostor.Api.Games.Managers;
@@ -10,6 +12,11 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
 {
     public class QuiteExtendableDirectInterface
     {
+        public QuiteExtendableDirectInterface(Class source)
+        {
+            source.OnExternalCommandInvoked += (cmd, data, single, connection) =>
+                OnDashboardCommandReceived?.Invoke(cmd, data, single, connection);
+        }
         /// <summary>
         /// A logger, to directly output to the console.
         /// </summary>
@@ -79,9 +86,16 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         /// </summary>
         public PluginFileSystem StorageProvider { get; set; }
         /// <summary>
+        /// Use this for any server services that you have.
+        /// </summary>
+        public QuiteEffectiveDetector QEDetector { get; set; }
+        /// <summary>
+        /// This is triggered when the main command handler processed an unknown command. It means that the command was hooked externally, from a plugin.
+        /// </summary>
+        public event Class.DelDashboardCommandInvoked OnDashboardCommandReceived;
+        /// <summary>
         /// This is a direct reference to the plugin main. Please use this if the referenced object do not meet your requirements. Warning: this offers total access over ImpostorHQ. Messing with the wrong values or function could lead to unwanted errors. Please refer to the source code before accessing this.
         /// </summary>
         public Class UnsafeDirectReference { get; set; }
-
     }
 }

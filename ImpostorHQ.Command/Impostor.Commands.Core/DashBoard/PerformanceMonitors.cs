@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace Impostor.Commands.Core.DashBoard
 {
@@ -23,6 +24,7 @@ namespace Impostor.Commands.Core.DashBoard
 
         private DateTime _startTime, _endTime;
         private TimeSpan _startUsage, _endUsage;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void DoCount()
         {
             while (Running)

@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using Impostor.Api.Games.Managers;
 using Impostor.Commands.Core.SELF;
 using Microsoft.Extensions.Logging;
@@ -38,6 +39,8 @@ namespace Impostor.Commands.Core.DashBoard
         public DateTime StartTime { get; private set; }
         public PerformanceMonitors Counters { get; private set; }
         private Class Master { get; set; }
+        private QuiteEffectiveDetector QEDector { get; set; }
+        private readonly List<string> AttackerAddresses = new List<string>();
         /// <summary>
         /// This will host an API server, that can be accessed with the given API keys.
         /// </summary>
@@ -45,7 +48,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="listenInterface">The interface to bind the socket to.</param>
         /// <param name="keys">The accepted API keys.</param>
         /// <param name="logger">The global logger.</param>
-        public WebApiServer(ushort port, string listenInterface,string[] keys,ILogger<Class> logger, IGameManager manager,Class masterClass)
+        public WebApiServer(ushort port, string listenInterface,string[] keys,ILogger<Class> logger, IGameManager manager,Class masterClass,QuiteEffectiveDetector detector)
         {
             this.StartTime = DateTime.UtcNow;
             this.Counters = new PerformanceMonitors();
@@ -57,6 +60,7 @@ namespace Impostor.Commands.Core.DashBoard
             };
             this.Logger = logger;
             this.GameManager = manager;
+            this.QEDector = detector;
             //we initialize our objects.
             GlobalMessage = new Structures.BaseMessage();
             ApiKeys = new List<string>();
@@ -109,6 +113,21 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="conn">The client to process.</param>
         private void OnOpen(IWebSocketConnection conn)
         {
+            if (QEDector.IsAttacking(IPAddress.Parse((ReadOnlySpan<char>) conn.ConnectionInfo.ClientIpAddress)))
+            {
+                lock (AttackerAddresses)
+                {
+                    if (!AttackerAddresses.Contains(conn.ConnectionInfo.ClientIpAddress))
+                    {
+                        Push(
+                            $"Under denial of service attack from: {conn.ConnectionInfo.ClientIpAddress}! The address has been booted from accessing the Web API server, for 5 minutes. Please take action!",
+                            "-HIGHEST PRIORITY/CRITICAL-", Structures.MessageFlag.ConsoleLogMessage);
+                        AttackerAddresses.Add(conn.ConnectionInfo.ClientIpAddress);
+                    }
+                }
+
+                return;
+            }
             conn.OnMessage = message =>
             {
                 //we will handle AUTH and commands here.
@@ -289,6 +308,13 @@ namespace Impostor.Commands.Core.DashBoard
                     if (Clients.Contains(conn)) /*why shouldn't it...*/ Clients.Remove(conn);
                 }
             }
+            catch (ObjectDisposedException)
+            {
+                lock (Clients)
+                {
+                    if (Clients.Contains(conn)) /*why shouldn't it...*/ Clients.Remove(conn);
+                }
+            }
             catch (Exception ex)
             {
                 Master.LogManager.LogError(ex.ToString(),Shared.ErrorLocation.AsyncSend);
@@ -306,6 +332,7 @@ namespace Impostor.Commands.Core.DashBoard
             return (ulong)t.TotalMilliseconds;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DoHeartbeat()
         {
             while (Running)
