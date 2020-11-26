@@ -384,13 +384,21 @@ namespace Impostor.Commands.Core.DashBoard
                 if(!ApiKeys.Contains(key)) ApiKeys.Add(key);
             }
         }
-
         public void RemoveKey(string key)
         {
             lock (ApiKeys)
             {
                 if (ApiKeys.Contains(key)) ApiKeys.Remove(key);
             }
+        }
+
+        /// <summary>
+        /// Will return the number of clients/dashboards connected.
+        /// </summary>
+        /// <returns>The number of logged-in clients.</returns>
+        public uint GetClientCount()
+        {
+            lock (Clients) return (uint)Clients.Count;
         }
 
         public delegate void DelMessageReceived(Structures.BaseMessage message,IWebSocketConnection connection);
