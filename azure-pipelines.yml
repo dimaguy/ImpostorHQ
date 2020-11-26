@@ -1,4 +1,5 @@
 # Made by Gavin Steinhoff
+# With some edits by Dimaguy
 trigger:
   branches:
     include:
@@ -31,7 +32,7 @@ steps:
     restoreSolution: '**/ImpostorHQ.Plugin.Fashionable.Designer.csproj'
     feedsToUse: 'select'
 - task: MSBuild@1
-  displayName: MS Build
+  displayName: "MS Build - ImpostorHQ.Plugin.Fashionable.Designer"
   inputs:
     solution: '**/ImpostorHQ.Plugin.Fashionable.Designer.csproj'
     configuration: '$(buildConfiguration)'
@@ -54,36 +55,56 @@ steps:
     arguments: '--configuration $(buildConfiguration) --no-restore'
 - task: CopyFiles@2
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  displayName: "Impostor.Commands.Core"
   inputs:
-    Contents: '**/Impostor.Commands.Core.dll'
+    Contents: '**/ImpostorHQ.Commands.Core.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorCommandsCore'
     flattenFolders: true
 - task: CopyFiles@2
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  displayName: "ImpostorHQ.Plugin.DDoSInfo"
+  inputs:
+    Contents: '**/ImpostorHQ.Plugin.DDoSInfo.dll'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+    flattenFolders: true
+- task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  displayName: "ImpostorHQ.Plugin.DiskStatus"
+  inputs:
+    Contents: '**/ImpostorHQ.Plugin.DiskStatus.dll'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+    flattenFolders: true
+- task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  displayName: "ImpostorHQ.Plugin.Fashionable"
   inputs:
     Contents: '**/ImpostorHQ.Plugin.Fashionable.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
     flattenFolders: true
 - task: CopyFiles@2
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  displayName: "ImpostorHQ.Plugin.HallOfShame"
   inputs:
     Contents: '**/ImpostorHQ.Plugin.HallOfShame.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
     flattenFolders: true
 - task: CopyFiles@2
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  displayName: "ImpostorHQ.Plugin.Test"
   inputs:
     Contents: '**/Plugin.Test.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
     flattenFolders: true
 - task: CopyFiles@2
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  displayName: "LogParser"
   inputs:
     Contents: '**/LogParser.exe'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/LogParser'
     flattenFolders: true
 - task: CopyFiles@2
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  displayName: "ImpostorHQ.Plugin.Fashionable.Designer.exe"
   inputs:
     Contents: '**/ImpostorHQ.Plugin.Fashionable.Designer.exe'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/FashionableDesigner'
