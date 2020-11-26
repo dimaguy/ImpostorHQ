@@ -268,9 +268,9 @@ namespace Plugin.Example.Docs
 
 Results:
 
-[https://femto.pw/9u7h](https://femto.pw/9u7h)
+![Player](https://femto.pw/9u7h)
 
-[https://femto.pw/wmvg](https://femto.pw/wmvg)
+![Dashboard](https://femto.pw/wmvg)
 
 
 
