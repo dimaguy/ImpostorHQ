@@ -55,9 +55,9 @@ steps:
     arguments: '--configuration $(buildConfiguration) --no-restore'
 - task: CopyFiles@2
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
-  displayName: "Impostor.Commands.Core"
+  displayName: "ImpostorHQ.Commands.Core"
   inputs:
-    Contents: '**/ImpostorHQ.Commands.Core.dll'
+    Contents: '**/Impostor.Commands.Core.dll'
     TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorCommandsCore'
     flattenFolders: true
 - task: CopyFiles@2
