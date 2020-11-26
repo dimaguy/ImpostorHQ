@@ -1,10 +1,19 @@
-# .NET Desktop
-# Build and run tests for .NET Desktop or Windows classic desktop solutions.
-# Add steps that publish symbols, save build artifacts, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/apps/windows/dot-net
-
+# Made by Gavin Steinhoff
 trigger:
-- main
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+    - ImpostorHQ.Dashboard/*
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    exclude:
+    - ImpostorHQ.Dashboard/*
 
 pool:
   vmImage: 'windows-latest'
@@ -15,29 +24,84 @@ variables:
   buildConfiguration: 'Release'
 
 steps:
-- task: NuGetToolInstaller@1
+- task: NuGetCommand@2
+  displayName: Nuget Restore
+  inputs:
+    command: 'restore'
+    restoreSolution: '**/ImpostorHQ.Plugin.Fashionable.Designer.csproj'
+    feedsToUse: 'select'
+- task: MSBuild@1
+  displayName: MS Build
+  inputs:
+    solution: '**/ImpostorHQ.Plugin.Fashionable.Designer.csproj'
+    configuration: '$(buildConfiguration)'
+- task: DotNetCoreCLI@2
+  displayName: ".Net Restore"
+  inputs:
+    command: 'restore'
+    projects: |
+      **/*.csproj
+      !**/ImpostorHQ.Plugin.Fashionable.Designer.csproj
+    arguments: '--configuration $(buildConfiguration)'
+    
+- task: DotNetCoreCLI@2
+  displayName: ".Net Build"
+  inputs:
+    command: 'build'
+    projects: |
+      **/*.csproj
+      !**/ImpostorHQ.Plugin.Fashionable.Designer.csproj
+    arguments: '--configuration $(buildConfiguration) --no-restore'
+- task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  inputs:
+    Contents: '**/Impostor.Commands.Core.dll'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorCommandsCore'
+    flattenFolders: true
+- task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  inputs:
+    Contents: '**/ImpostorHQ.Plugin.Fashionable.dll'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+    flattenFolders: true
+- task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  inputs:
+    Contents: '**/ImpostorHQ.Plugin.HallOfShame.dll'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+    flattenFolders: true
+- task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  inputs:
+    Contents: '**/Plugin.Test.dll'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+    flattenFolders: true
+- task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  inputs:
+    Contents: '**/LogParser.exe'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/LogParser'
+    flattenFolders: true
+- task: CopyFiles@2
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  inputs:
+    Contents: '**/ImpostorHQ.Plugin.Fashionable.Designer.exe'
+    TargetFolder: '$(Build.ArtifactStagingDirectory)/FashionableDesigner'
+    flattenFolders: true
 
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'Impostor.Commands.Core\Impostor.Commands.Core.csproj'
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'Format.SEL\Format.SEL.csproj'
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'ImpostorHQ.Plugin.Fashionable\ImpostorHQ.Plugin.Fashionable.csproj'
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'ImpostorHQ.Plugin.HallOfShame\ImpostorHQ.Plugin.HallOfShame.csproj'
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'LogParser\LogParser.csproj'
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'build'
-    projects: 'Plugin.Test\Plugin.Test.csproj'
+- publish: '$(Build.ArtifactStagingDirectory)/ImpostorCommandsCore'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  artifact: ImpostorCommandsCore
+
+- publish: '$(Build.ArtifactStagingDirectory)/ImpostorHQPlugin'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  artifact: ImpostorHQPlugins
+
+- publish: '$(Build.ArtifactStagingDirectory)/LogParser'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  artifact: LogParser
+  
+- publish: '$(Build.ArtifactStagingDirectory)/FashionableDesigner'
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+  artifact: FashionableDesigner
+
