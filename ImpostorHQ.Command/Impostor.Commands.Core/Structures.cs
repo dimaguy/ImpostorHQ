@@ -1,14 +1,12 @@
 ﻿using System;
 using System.IO;
 using System.Text.Json;
-using Impostor.Api.Innersloth;
-using Impostor.Api.Net.Messages;
 using System.Collections.Generic;
 using Hazel;
 
 namespace Impostor.Commands.Core
 {
-    public class Structures
+    public partial class Structures
     {
         public static class MessageFlag
         {
@@ -21,6 +19,7 @@ namespace Impostor.Commands.Core
             public const string GameListMessage = "6";      // A relic of the past.
             public const string DoKickOrDisconnect = "7";   // A message when a client is kicked (not implemented) or the server shuts down.
             public const string FetchLogs = "8";            // A specialized message. This is only server sided, and will indicate that a log file exists or not.
+            public const string SelectProtocol = "x9";      // A special message, not used by the dashboard.
         }
         [Serializable]
         public class BaseMessage
@@ -97,9 +96,9 @@ namespace Impostor.Commands.Core
         public class PluginConfiguration
         {
             #region Dashboard
-            public bool UseSSL { get; set; }
-            public List<string> APIKeys { get; set; }
-            public ushort APIPort { get; set; }
+            public bool UseSsl { get; set; }
+            public List<string> ApiKeys { get; set; }
+            public ushort WebApiPort { get; set; }
             public ushort WebsitePort { get; set; }
             public string ListenInterface { get; set; }
             #endregion
@@ -107,9 +106,9 @@ namespace Impostor.Commands.Core
             {
                 var cfg = new PluginConfiguration();
                 #region Dashboard
-                cfg.UseSSL = false;
-                cfg.APIKeys = new List<string>() { Guid.NewGuid().ToString() };
-                cfg.APIPort = 22023;
+                cfg.UseSsl = false;
+                cfg.ApiKeys = new List<string>() { Guid.NewGuid().ToString() };
+                cfg.WebApiPort = 22023;
                 cfg.WebsitePort = 22024;
                 cfg.ListenInterface = "0.0.0.0";
                 #endregion
@@ -167,6 +166,7 @@ namespace Impostor.Commands.Core
             public const string ExternalCall = "impostor/externalcall";
         }
 
+        #region Game Enums
         public enum PlayerColor
         {
             Red, Blue, Green, Pink, Orange, Yellow, Black, White, Purple, Brown, Cyan, Lime
@@ -335,6 +335,7 @@ namespace Impostor.Commands.Core
             SetTasks = 29,
             UpdateGameData = 30,
         }
+        #endregion
 
         public static readonly byte[] MaxPlayers = new byte[]
         {
@@ -348,139 +349,10 @@ namespace Impostor.Commands.Core
         {
             "skeld","polus","mirahq"
         };
-        //not used yet:
-        public class PacketGenerator
-        {
-            public bool WritingGameData { get; set; }
-            public bool WritingRPC { get; set; }
-            private IMessageWriterProvider Provider { get; set; }
-            public PacketGenerator(IMessageWriterProvider provider)
-            {
-                this.Provider = provider;
-            }
 
-            public IMessageWriter WriteChat(int game, uint netId, string original, string[] chat,string source)
-            {
-                var messageWriter = Provider.Get(MessageType.Reliable);
-                messageWriter.StartMessage(Api.Net.Messages.MessageFlags.GameData);
-                messageWriter.Write(game);
-                messageWriter.StartMessage((byte)GameDataType.RpcFlag);
-                messageWriter.WritePacked(netId);
-                messageWriter.Write((byte)Structures.RpcCalls.SetName);
-                messageWriter.Write(source);
-                messageWriter.EndMessage();
-                foreach (var message in chat)
-                {
-                    messageWriter.StartMessage((byte)GameDataType.RpcFlag);
-                    messageWriter.WritePacked(netId);
-                    messageWriter.Write((byte)Structures.RpcCalls.SendChat);
-                    messageWriter.Write(message);
-                    messageWriter.EndMessage();
-                }
-                messageWriter.StartMessage((byte)GameDataType.RpcFlag);
-                messageWriter.WritePacked(netId);
-                messageWriter.Write((byte)Structures.RpcCalls.SetName);
-                messageWriter.Write(original);
-                messageWriter.EndMessage();
-                messageWriter.EndMessage();
-                return messageWriter;
-            }
-
-            public IMessageWriter GenerateDataPacket(GameOptionsData data, int game, uint netId)
-            {
-                var writer = Provider.Get(MessageType.Reliable);
-                writer.StartMessage(Api.Net.Messages.MessageFlags.GameData);
-                writer.Write(game);
-                writer.StartMessage((byte)GameDataType.RpcFlag);
-                writer.WritePacked(netId);
-                writer.Write((byte)Structures.RpcCalls.SyncSettings);
-                using(var stream = new MemoryStream())
-                using (BinaryWriter bWriter = new BinaryWriter(stream))
-                {
-                    data.Serialize(bWriter,4);
-                    writer.WriteBytesAndSize(stream.ToArray());
-                }
-                writer.EndMessage();
-                writer.EndMessage();
-                return writer;
-            }
-
-            public IMessageWriter GenerateNameChangePacket(string name, uint netId, int gameCode)
-            {
-                var messageWriter = Provider.Get(MessageType.Reliable);
-                messageWriter.StartMessage(Api.Net.Messages.MessageFlags.GameData);
-                messageWriter.Write(gameCode);
-                messageWriter.StartMessage((byte)GameDataType.RpcFlag);
-                messageWriter.WritePacked(netId);
-                messageWriter.Write((byte)Structures.RpcCalls.SetName);
-                messageWriter.Write(name);
-                messageWriter.EndMessage();
-                messageWriter.EndMessage();
-                return messageWriter;
-            }
-
-            internal static class MessageFlags
-            {
-                public const byte HostGame = 0;
-                public const byte JoinGame = 1;
-                public const byte StartGame = 2;
-                public const byte RemoveGame = 3;
-                public const byte RemovePlayer = 4;
-                public const byte GameData = 5;
-                public const byte GameDataTo = 6;
-                public const byte JoinedGame = 7;
-                public const byte EndGame = 8;
-                public const byte AlterGame = 10;
-                public const byte KickPlayer = 11;
-                public const byte WaitForHost = 12;
-                public const byte Redirect = 13;
-                public const byte ReselectServer = 14;
-                public const byte GetGameList = 9;
-                public const byte GetGameListV2 = 16;
-            }
-            
-            public enum GameDataType : byte
-            {
-                RpcFlag = 2,
-                SpawnFlag = 4,
-                DespawnFlag = 5,
-                SceneChangeFlag = 6,
-                ReadyFlag = 7,
-                ChangeSettingsFlag = 8
-            }
-            
-        }
         public enum BroadcastType
         {
             Warning, Error, Information,Manual
-        }
-        [Serializable]
-        public class Report
-        {
-            /// <summary>
-            /// The supposed offender's IPA.
-            /// </summary>
-            public string Target { get; set; }
-            /// <summary>
-            /// The name of the offender.
-            /// </summary>
-            public string TargetName { get; set; }
-            /// <summary>
-            /// The witnesses's IPAs.
-            /// </summary>
-            public List<string> Sources { get; set; }
-            /// <summary>
-            /// The testimonials.
-            /// </summary>
-            public List<string> Messages { get; set; }
-            /// <summary>
-            /// How many complaints there are against the offender.
-            /// </summary>
-            public ushort TotalReports { get; set; }
-            /// <summary>
-            /// How much jail time the offender gets.
-            /// </summary>
-            public uint MinutesRemaining { get; set; }
         }
     }
 }

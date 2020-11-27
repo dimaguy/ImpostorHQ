@@ -50,7 +50,6 @@ namespace Impostor.Commands.Core.SELF
             SetTasks,
             UpdateGameData
         }
-
         public class RpcLog
         {
             public Shared.RpcCalls Type { get; set; }
@@ -64,8 +63,10 @@ namespace Impostor.Commands.Core.SELF
 
             public static RpcLog Deserialize(SelfDecoder.BinaryLog source)
             {
-                var log = new RpcLog();
-                log.Type = (Shared.RpcCalls)source.LogData[0];
+                var log = new RpcLog
+                {
+                    Type = (Shared.RpcCalls)source.LogData[0]
+                };
                 var buffer = new byte[4];
                 Buffer.BlockCopy(source.LogData, 1, buffer, 0, 4);
                 log.GameCode = BitConverter.ToInt32(buffer, 0);
@@ -77,7 +78,6 @@ namespace Impostor.Commands.Core.SELF
                 return log;
             }
         }
-
         public class DashboardLog
         {
             public string SourceIp { get; set; }
@@ -98,7 +98,6 @@ namespace Impostor.Commands.Core.SELF
                 };
             }
         }
-
         public class PluginLog
         {
             public string PluginName { get; set; }
@@ -123,7 +122,6 @@ namespace Impostor.Commands.Core.SELF
                 };
             }
         }
-
         public class ErrorLog
         {
             public ErrorLocation Location { get; set; }

@@ -13,7 +13,10 @@ namespace Impostor.Commands.Core.SELF
         {
             IOStream = new MemoryStream(selfBytes);
         }
-
+        /// <summary>
+        /// This is used to read a log from the physical stream.
+        /// </summary>
+        /// <returns>A deserialized binary log.</returns>
         public BinaryLog ReadLog()
         {
             var sizeBytes = new byte[2];
@@ -23,11 +26,15 @@ namespace Impostor.Commands.Core.SELF
             IOStream.Read(data, 0, size);
             return BinaryLog.Deserialize(new MemoryStream(data), size);
         }
-
+        /// <summary>
+        /// This is used to read all logs from the physical device.
+        /// </summary>
+        /// <returns></returns>
         public IEnumerable<BinaryLog> ReadAll()
         {
             while (IOStream.Position != IOStream.Length) yield return ReadLog();
         }
+        private static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         public class BinaryLog
         {
             public ushort BaseLength { get; set; }
@@ -51,14 +58,11 @@ namespace Impostor.Commands.Core.SELF
                 };
             }
 
-            private static readonly DateTime Epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
             private static DateTime GetTime(ulong unixTime)
             {
                 return Epoch.AddMilliseconds(unixTime);
             }
         }
-
         public void Dispose()
         {
             IOStream.Dispose();

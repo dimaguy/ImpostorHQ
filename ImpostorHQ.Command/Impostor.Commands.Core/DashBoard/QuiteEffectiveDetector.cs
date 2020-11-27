@@ -9,7 +9,7 @@ namespace Impostor.Commands.Core.DashBoard
     {
         // this super simple system will offer denial of service detection.
         // using this, we can effectively boot skids off.
-
+        #region Members
         /// <summary>
         /// Will get or set the maximum packet rate allowed.
         /// </summary>
@@ -20,6 +20,7 @@ namespace Impostor.Commands.Core.DashBoard
         private readonly List<IPAddress> Blocked = new List<IPAddress>();
         private readonly Dictionary<IPAddress,uint> History  = new Dictionary<IPAddress, uint>();
         public bool Running { get; private set; }
+        #endregion
         public QuiteEffectiveDetector(ushort maxRequestsPerMinute)
         {
             this.Running = true;
@@ -27,7 +28,6 @@ namespace Impostor.Commands.Core.DashBoard
             var t = new Thread(UpdaterCallback);
             t.Start();
         }
-
         /// <summary>
         /// Use this whenever you receive a new connection. This will indicate whether or not the client is attacking you / the HTTP server / the API server.
         /// </summary>
@@ -64,7 +64,6 @@ namespace Impostor.Commands.Core.DashBoard
             }
             return false;
         }
-
         private void UpdaterCallback()
         {
             while (Running)
@@ -100,7 +99,6 @@ namespace Impostor.Commands.Core.DashBoard
                 }
             }
         }
-
         /// <summary>
         /// Will return the current attackers.
         /// </summary>
@@ -116,12 +114,10 @@ namespace Impostor.Commands.Core.DashBoard
                 }
             }
         }
-
         public void Shutdown()
         {
             Running = false;
         }
-
         internal class Removable
         {
             public Removable(DateTime start, IPAddress address)
@@ -132,7 +128,6 @@ namespace Impostor.Commands.Core.DashBoard
             public DateTime StartTime { get; set; }
             public IPAddress Address { get; set; }
         }
-
         public class BlockedAddressInfo
         {
             public BlockedAddressInfo(IPAddress addr, DateTime start, DateTime current, uint ago)
@@ -164,9 +159,10 @@ namespace Impostor.Commands.Core.DashBoard
             /// </summary>
             public uint SecondsLeft { get; private set; }
         }
-
         public delegate void DelBlockedFirst(IPAddress address);
-
+        /// <summary>
+        /// This event is called when an address is first blocked. It will only be called once, while the address is blocked. It will be called once again if the user resumes their attack after the cooldown has expired.
+        /// </summary>
         public event DelBlockedFirst OnBlockedOnce;
     }
 }

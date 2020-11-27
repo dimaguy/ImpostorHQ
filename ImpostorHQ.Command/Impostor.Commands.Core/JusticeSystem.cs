@@ -11,11 +11,11 @@ namespace Impostor.Commands.Core
 {
     public class JusticeSystem
     {
-        //
+        #region Members
         //  we need a storage for reports (that are not bans, yet)
-        public List<Structures.Report> IpReports = new List<Structures.Report>();
+        public List<JusticeSystem.Report> IpReports = new List<JusticeSystem.Report>();
         //  we need a storage for permanent bans. This is also present on the DISK.
-        public List<Structures.Report> PermanentBans = new List<Structures.Report>();
+        public List<JusticeSystem.Report> PermanentBans = new List<JusticeSystem.Report>();
         //  the global logger.
         private ILogger Logger { get; set; }
         //  this indicates how many reports are required to automatically issue a ban.
@@ -24,8 +24,11 @@ namespace Impostor.Commands.Core
         //  it is a folder storing files for each permanent ban.
         private string BanFolder { get; set; }
         //  a chat interface, used to interact with witnesses.
+
         private GameCommandChatInterface ChatInterface { get; set; }
         private Class Manager { get; set; }
+        #endregion
+
         /// <summary>
         /// This will initialize a new instance of the JusticeSystem class. It is an example extension, which handles banning cheaters.
         /// </summary>
@@ -33,7 +36,7 @@ namespace Impostor.Commands.Core
         /// <param name="reportsPerBan">How many reports are required in order to issue an automatic ban.</param>
         /// <param name="logger">The global logger.</param>
         /// <param name="chatInterface">A chat interface, in order to interact with the players.</param>
-        public JusticeSystem(string banFolder, ushort reportsPerBan, ILogger logger, GameCommandChatInterface chatInterface,Impostor.Commands.Core.Class Master)
+        public JusticeSystem(string banFolder, ushort reportsPerBan, ILogger logger, GameCommandChatInterface chatInterface,Class Master)
         {
             this.ReportsPerBan = reportsPerBan;
             this.BanFolder = banFolder;
@@ -43,7 +46,6 @@ namespace Impostor.Commands.Core
             //we can now read our database (if we have one).
             LoadPermanentBans();
         }
-
         /// <summary>
         /// This will read and load permanent bans off the disk, if we have any.
         /// </summary>
@@ -58,7 +60,7 @@ namespace Impostor.Commands.Core
             {
                 if (file.Contains("ban-"))
                 {
-                    var report = JsonSerializer.Deserialize<Structures.Report>(File.ReadAllText(file));
+                    var report = JsonSerializer.Deserialize<JusticeSystem.Report>(File.ReadAllText(file));
                     lock (PermanentBans) PermanentBans.Add(report);
                     OnBanRead?.Invoke(report);
                 }
@@ -66,7 +68,6 @@ namespace Impostor.Commands.Core
 
             lock (PermanentBans) Logger.LogInformation($"ImpostorHQ : Loaded {PermanentBans.Count} bans.");
         }
-
         /// <summary>
         /// Call this whenever the report command is fired. This will handle reporting, logging, and banning.
         /// </summary>
@@ -144,7 +145,7 @@ namespace Impostor.Commands.Core
 
                             if (!updated)
                             {
-                                var report = new Structures.Report
+                                var report = new JusticeSystem.Report
                                 {
                                     TargetName = client.Character.PlayerInfo.PlayerName,
                                     TotalReports = 1,
@@ -168,12 +169,11 @@ namespace Impostor.Commands.Core
                     "(server/warn)", source.ClientPlayer);
             }
         }
-
         /// <summary>
         /// This will add a permanent ban to both the memory list and the disk database.
         /// </summary>
         /// <param name="rep"></param>
-        public void AddPermBan(Structures.Report rep)
+        public void AddPermBan(JusticeSystem.Report rep)
         {
             lock (PermanentBans)
             {
@@ -183,73 +183,16 @@ namespace Impostor.Commands.Core
 
             File.WriteAllText(Path.Combine(BanFolder, $"ban-{rep.Target}.json"), JsonSerializer.Serialize(rep));
         }
-        /// <summary>
-        /// Can be used by modified impostor servers to ban players, for e.g anti-cheat reasons.
-        /// </summary>
-        /// <param name="address">The address of the target to ban.</param>
-        /// <param name="name">The player name of the target to ban.</param>
-        /// <param name="reason">The reason for the ban. It will appear in the ban file.</param>
-        /// <param name="source">The source system that triggered the ban, e.g "RPC Cheat Detection"</param>
-        public void ExternalBanPlayer(string address, string name, string reason, string source)
-        {
-            AddPermBan( new Structures.Report
-            {
-                Sources = new List<string>()
-            {
-                source
-            },
-                Messages = new List<string>()
-            {
-                reason
-            },
-                Target = address,
-                TargetName = name,
-                TotalReports = 0,
-                MinutesRemaining = 0
-            });
-            var message = string.Empty;
-            try
-            {
-                foreach (var possibleTarget in Manager.GetPlayers())
-                {
-                    var connection = possibleTarget.Client.Connection;
-                    if (connection != null)
-                    {
-                        if (connection.EndPoint.Address.ToString().Equals(address) && possibleTarget!=null)
-                        {
-                            possibleTarget.BanAsync();
-                            message = "The target was also connected to a lobby. He has been kicked.";
-                            break;
-                        }
-                    }
-
-                }
-
-                message = "The target was not playing in any lobby.";
-            }
-            catch (Exception e)
-            {
-                message = $"Unfortunately, a critical error has occured : {e.Message}";
-            }
-            finally
-            {
-                try
-                {
-                    Manager.ApiServer.Push($"Critical : external ban function was called, by \"{source}\", because \"{reason}\", banning \"{name}/{address}\". {message}", Structures.ServerSources.ExternalCall, Structures.MessageFlag.ConsoleLogMessage);
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError($"CRITICAL : Push error occured! : {ex.Message}");
-                }
-            }
-
-        }
         public void ReloadBans()
         {
             lock(PermanentBans) PermanentBans.Clear();
             LoadPermanentBans();
         }
-
+        /// <summary>
+        /// This will remove a ban, if it exists.
+        /// </summary>
+        /// <param name="address">The address of the offender.</param>
+        /// <returns>True if the ban was found and deleted.</returns>
         public bool RemoveBan(string address)
         {
             lock (PermanentBans)
@@ -285,9 +228,15 @@ namespace Impostor.Commands.Core
                 }
             }
         }
-
+        /// <summary>
+        /// This will permanently ban a player. The player must be connected to the server.
+        /// </summary>
+        /// <param name="addr">The player's address.</param>
+        /// <param name="dashboard">The address of the dashboard from where the command originated.</param>
+        /// <returns>True if the player was found and banned.</returns>
         public bool BanPlayer(IPAddress addr,string dashboard)
         {
+            bool found = false;
             foreach (var possibleTarget in Manager.GetPlayers())
             {
                 if(possibleTarget == null || possibleTarget.Client.Connection==null ||possibleTarget.Character == null) continue;
@@ -295,40 +244,74 @@ namespace Impostor.Commands.Core
                 {
                     //we found our target!
                     possibleTarget.BanAsync();
-                    var report = new Structures.Report
+                    if (!found)
                     {
-                        Messages = new List<string>
-                    {
-                        "<adminsys / " + DateTime.Now.ToString() + ">"
-                    },
-                        Sources = new List<string>
-                    {
-                        dashboard
-                    },
-                        Target = possibleTarget.Client.Connection.EndPoint.Address.ToString(),
-                        TargetName = possibleTarget.Character.PlayerInfo.PlayerName,
+                        found = true;
+                        var report = new JusticeSystem.Report
+                        {
+                            Messages = new List<string>
+                            {
+                                "<adminsys / " + DateTime.Now.ToString() + ">"
+                            },
+                            Sources = new List<string>
+                            {
+                                dashboard
+                            },
+                            Target = possibleTarget.Client.Connection.EndPoint.Address.ToString(),
+                            TargetName = possibleTarget.Character.PlayerInfo.PlayerName,
 
-                        MinutesRemaining = 0,
-                        TotalReports = 0
-                    };
-                    AddPermBan(report);
-                    return true;
+                            MinutesRemaining = 0,
+                            TotalReports = 0
+                        };
+                        AddPermBan(report);
+                    }
                 }
             }
 
-            return false;
+            return found;
         }
 
-        public delegate void PlayerBanned(Structures.Report report);
+        #region Events
+        public delegate void PlayerBanned(JusticeSystem.Report report);
 
         public event PlayerBanned OnPlayerBanned;
 
-        public delegate void PlayerPardoned(Structures.Report report);
+        public delegate void PlayerPardoned(JusticeSystem.Report report);
 
         public event PlayerPardoned OnPlayerPardoned;
 
-        public delegate void BanLoaded(Structures.Report rep);
+        public delegate void BanLoaded(JusticeSystem.Report rep);
 
         public event BanLoaded OnBanRead;
+        #endregion
+
+        [Serializable]
+        public class Report
+        {
+            /// <summary>
+            /// The supposed offender's IPA.
+            /// </summary>
+            public string Target { get; set; }
+            /// <summary>
+            /// The name of the offender.
+            /// </summary>
+            public string TargetName { get; set; }
+            /// <summary>
+            /// The witnesses's IPAs.
+            /// </summary>
+            public List<string> Sources { get; set; }
+            /// <summary>
+            /// The testimonials.
+            /// </summary>
+            public List<string> Messages { get; set; }
+            /// <summary>
+            /// How many complaints there are against the offender.
+            /// </summary>
+            public ushort TotalReports { get; set; }
+            /// <summary>
+            /// How much jail time the offender gets.
+            /// </summary>
+            public uint MinutesRemaining { get; set; }
+        }
     }
 }

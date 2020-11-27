@@ -8,12 +8,14 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
 {
     public class PluginLoader
     {
+        #region Members
         public List<IPlugin> Plugins { get; private set; }
         public Type TargetType { get; private set; }
         public uint ApiVersion { get; private set; }
         public string FolderPath { get; private set; }
         private string[] Stores { get; set; }
         public readonly QuiteExtendableDirectInterface Master;
+        #endregion
         public PluginLoader(string folderPath, QuiteExtendableDirectInterface master, uint version)
         {
             this.ApiVersion = version;
@@ -22,7 +24,9 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
             this.FolderPath = folderPath;
             this.Master = master;
         }
-
+        /// <summary>
+        /// This is called when the server is starting.
+        /// </summary>
         public void LoadPlugins()
         {
             foreach (var file in Directory.GetFiles(FolderPath))
@@ -64,6 +68,25 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
             Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded {Plugins.Count} plugins.");
         }
 
+        /// <summary>
+        /// Will try to get a reference to another ImpostorHQ plugin.
+        /// </summary>
+        /// <param name="fullName">The full name of the plugin.</param>
+        /// <returns>An object representing the results of the search.</returns>
+        public CrossReferenceResult TryGetPlugin(string fullName)
+        {
+            lock (Plugins)
+            {
+                foreach (var plugin in Plugins)
+                {
+                    if(plugin.Name.Equals(fullName)) return new CrossReferenceResult(plugin);
+                }
+            }
+            return new CrossReferenceResult(null);
+        }
+        /// <summary>
+        /// This is called when the server is shutting down.
+        /// </summary>
         public void Shutdown()
         {
             foreach (var plugin in Plugins)
@@ -71,11 +94,24 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
                 plugin.Destroy();
             }
         }
-
         /// <summary>
         /// Gets all active stores. It is equivalent to the function found in the PluginFileSystem class.
         /// </summary>
         /// <returns></returns>
         public string[] GetStores() => Stores;
+        public class CrossReferenceResult
+        {
+            public CrossReferenceResult(IPlugin plugin)
+            {
+                if (plugin == null) this.Found = false;
+                else
+                {
+                    this.Found = true;
+                    this.Plugin = plugin;
+                }
+            }
+            public bool Found { get; private set;}
+            public IPlugin Plugin { get; private set; }
+        }
     }
 }

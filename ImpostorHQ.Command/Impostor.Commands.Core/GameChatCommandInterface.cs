@@ -13,7 +13,7 @@ namespace Impostor.Commands.Core
 {
     public class GameCommandChatInterface
     {
-        //
+        #region Members
         //  a list of registered commands.
         public List<string> Commands { get; private set; }
         //  the options required for parallel parsing operations.
@@ -22,6 +22,8 @@ namespace Impostor.Commands.Core
         public Structures.PacketGenerator Generator { get; set; }
         //  the global logger.
         private ILogger Logger { get; set; }
+        #endregion
+
         /// <summary>
         /// Used to create a new instance of the GameCommandChatInterface class. It is used to parse chat commands, send messages and broadcasts. The parsing operations will run in parallel, to maximize performance.
         /// </summary>
@@ -36,7 +38,6 @@ namespace Impostor.Commands.Core
             };
             //this will use all cores.
         }
-
         /// <summary>
         /// This is used to register a command to the parser. The command must start with '/'. Warning: It will be automatically lowercased.
         /// </summary>
@@ -49,7 +50,10 @@ namespace Impostor.Commands.Core
                 if (!Commands.Contains(command.ToLower())) Commands.Add(command.ToLower());
             }
         }
-
+        /// <summary>
+        /// This is used by the /help command to dynamically generate documentation.
+        /// </summary>
+        /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public string GenerateDocs()
         {
@@ -61,7 +65,7 @@ namespace Impostor.Commands.Core
 
             return str;
         }
-#pragma warning disable
+        #pragma warning disable
         /// <summary>
         /// This function is used to broadcast a chat message to a specific lobby.
         /// </summary>
@@ -115,8 +119,7 @@ namespace Impostor.Commands.Core
                 using (msg) destination.Client.Connection.SendAsync(msg);
             }
         }
-
-#pragma warning disable CS1998
+        #pragma warning disable CS1998
         /// <summary>
         /// This will be used to send a message to a specific player.
         /// </summary>
@@ -191,7 +194,6 @@ namespace Impostor.Commands.Core
                 Logger.LogError($"ImpostorHQ : Critical unknown error : {ex.Message}");
             }
         }
-
         /// <summary>
         /// This will broadcast / send a message. Only assign the last 2 parameters if you want a directional message.
         /// </summary>
@@ -221,9 +223,7 @@ namespace Impostor.Commands.Core
                 Logger.LogError($"ImpostorHQ : Critical error : {ex.Message}");
             }
         }
-
-#pragma warning restore
-
+        #pragma warning restore
         /// <summary>
         /// Use this on any chat event. If a command is registered, the OnCommandInvoked event will be fired.
         /// </summary>
@@ -248,8 +248,10 @@ namespace Impostor.Commands.Core
                 });
             }
         }
-
         public delegate void DelCommandInvoked(string command, string data, IPlayerChatEvent source);
+        /// <summary>
+        /// This is called when a command is invoked.
+        /// </summary>
         public event DelCommandInvoked OnCommandInvoked;
     }
 }

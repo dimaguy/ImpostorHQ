@@ -20,7 +20,7 @@ namespace ImpostorHQ.Plugin.HallOfShame.HallOfShame
         /// Adds a player to the hall of shame.
         /// </summary>
         /// <param name="report"></param>
-        public void AddBan(Structures.Report report)
+        public void AddBan(JusticeSystem.Report report)
         {
             var rec = GenerateRecord(report);
             if (string.IsNullOrEmpty(rec)) return;
@@ -30,14 +30,14 @@ namespace ImpostorHQ.Plugin.HallOfShame.HallOfShame
         /// Removes a player from the hall of shame.
         /// </summary>
         /// <param name="report"></param>
-        public void RemoveReport(Structures.Report report)
+        public void RemoveReport(JusticeSystem.Report report)
         {
             var rec = GenerateRecord(report);
             if (string.IsNullOrEmpty(rec)) return;
             Html.RemoveRecord(rec);
         }
 
-        private string GenerateRecord(Structures.Report rep)
+        private string GenerateRecord(JusticeSystem.Report rep)
         {
             if (rep.TargetName.Equals("<unknown>")) return null;
            return RecordBase.Replace("%username%", rep.TargetName.Replace("<", "").Replace(">", ""));
@@ -51,7 +51,7 @@ namespace ImpostorHQ.Plugin.HallOfShame.HallOfShame
         public string EndOfHtml { get; set; }
         private string Html { get; set; }
         private bool changed = true;
-        private object locker = new object();
+        private readonly object locker = new object();
         private readonly string Initial;
         public SegmentedHtml(string start, string end, string initialRecord)
         {

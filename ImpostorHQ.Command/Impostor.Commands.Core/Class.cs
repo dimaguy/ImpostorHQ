@@ -1,4 +1,5 @@
-﻿using Fleck;
+﻿#region Namespaces
+using Fleck;
 using System;
 using System.IO;
 using System.Net;
@@ -17,6 +18,7 @@ using Impostor.Commands.Core.SELF;
 using Microsoft.Extensions.Logging;
 using Impostor.Commands.Core.DashBoard;
 using Impostor.Commands.Core.QuantumExtensionDirector;
+#endregion
 
 #region Impostor API Imports
 using Impostor.Api.Games;
@@ -30,6 +32,7 @@ namespace Impostor.Commands.Core
     [ImpostorPlugin("ImpostorHQ","Impostor HeadQuarters API","anti, Dimaguy","0.0.4 beta")]
     public class Class : PluginBase
     {
+        // this is used by the plugin loader.
         public const int PluginApiVersion = 3;
 
         #region Members
@@ -129,7 +132,7 @@ namespace Impostor.Commands.Core
             return default;
         }
         #endregion
-        //
+        
         /// <summary>
         /// Our main thread. This executes all our code.
         /// </summary>
@@ -145,7 +148,7 @@ namespace Impostor.Commands.Core
                 cfg.SaveTo(ConfigPath);
                 this.Configuration = cfg;
                 //we need to create some keys.
-                Logger.LogInformation($"ImpostorHQ : Detected first run. Your API key : {cfg.APIKeys[0]}");
+                Logger.LogInformation($"ImpostorHQ : Detected first run. Your API key : {cfg.ApiKeys[0]}");
             }
             else
             {
@@ -198,7 +201,9 @@ namespace Impostor.Commands.Core
             this.PluginLoader = new PluginLoader(PluginFolderPath, QEDi, PluginApiVersion);
             PluginLoader.LoadPlugins();
         }
-
+        /// <summary>
+        /// This will initialize the game-plugin interfaces.
+        /// </summary>
         private void InitializeInterfaces()
         {
             this.ChatInterface = new GameCommandChatInterface(MessageWriterProvider, Logger);
@@ -215,16 +220,19 @@ namespace Impostor.Commands.Core
             GameEventListener.OnPlayerSpawnedFirst += GameEventListener_OnPlayerSpawnedFirst;
             GameEventListener.OnPlayerLeft += GameEventListener_OnPlayerLeft;
         }
-
+        /// <summary>
+        /// This will initialize the 2 servers.
+        /// </summary>
         private void InitializeServers()
         {
-            ClientHTML = File.ReadAllText(Path.Combine("dashboard", "client.html")).Replace("%listenport%", Configuration.APIPort.ToString());
+            ClientHTML = File.ReadAllText(Path.Combine("dashboard", "client.html")).Replace("%listenport%", Configuration.WebApiPort.ToString());
             var error404Html = File.ReadAllText(Path.Combine("dashboard", "404.html"));
             var errorMimeHtml = File.ReadAllText(Path.Combine("dashboard", "mime.html"));
             //we initialize our servers and set up the events.
-            this.ApiServer = new WebApiServer(Configuration.APIPort, Configuration.ListenInterface, Configuration.APIKeys.ToArray(), Logger,GameManager,this,QEDetector);
-            this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml,this,ApiServer,QEDetector);
-            Logger.LogInformation($"ImpostorHQ : API Server listening on: {Configuration.ListenInterface}:{Configuration.APIPort}. Dashboard listening on: {Configuration.ListenInterface}:{Configuration.WebsitePort}/client.html");
+            CertificateAuthority.CertificateSynthesizer synth = new CertificateAuthority.CertificateSynthesizer();
+            this.ApiServer = new WebApiServer(Configuration.WebApiPort, Configuration.ListenInterface, Configuration.ApiKeys.ToArray(), Logger,GameManager,this,QEDetector,Configuration.UseSsl,synth.GetHttpsCert("anti.the-great.exterminator"));
+            this.DashboardServer = new HttpServer(Configuration.ListenInterface, Configuration.WebsitePort, ClientHTML, error404Html, errorMimeHtml,this,ApiServer,QEDetector, Configuration.UseSsl, synth.GetHttpsCert("anti.the-great.exterminator"));
+            Logger.LogInformation($"ImpostorHQ : API Server listening on: {Configuration.ListenInterface}:{Configuration.WebApiPort}. Dashboard listening on: {Configuration.ListenInterface}:{Configuration.WebsitePort}/client.html");
             this.AnnouncementManager = new AnnouncementServer(this,"configs");
             ApiServer.OnMessageReceived += DashboardCommandReceived;
 
@@ -245,12 +253,20 @@ namespace Impostor.Commands.Core
             ApiServer.RegisterCommand(Structures.DashboardCommands.FetchLog, " <file, listed by /logs> => will download the log in CSV format. They will be converted to CSV on-demand, so don't spam this command, because it will use up CPU time.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.AnnouncementMultiCommand," set <message> => will set that announcement, clear => will clear the message and delete it from the disk.");
         }
-
-        private void PlayerBanned(Structures.Report rep)
+        /// <summary>
+        /// This is called when a player is banned by reports.
+        /// </summary>
+        /// <param name="rep"></param>
+        private void PlayerBanned(JusticeSystem.Report rep)
         {
             ApiServer.Push($"Player {rep.TargetName} / {rep.Target} was banned permanently.","reportsys",Structures.MessageFlag.ConsoleLogMessage,null);
         }
-
+        /// <summary>
+        /// This is the default player command handler, which also handles commands for plugins.
+        /// </summary>
+        /// <param name="command">The command to handle.</param>
+        /// <param name="data">The optional data that the command may require.</param>
+        /// <param name="source">The sender.</param>
         private void GameEventListener_OnPlayerCommandReceived(string command, string data, IPlayerChatEvent source)
         {
             if (command.Equals(Structures.PlayerCommands.Help))
@@ -372,18 +388,23 @@ namespace Impostor.Commands.Core
                 }
             }
         }
-
-        private void GameEventListener_OnPlayerSpawnedFirst(IPlayerSpawnedEvent evg)
+        /// <summary>
+        /// This is called whenever a player spawns. It is used by the ban handler.
+        /// </summary>
+        /// <param name="evt"></param>
+        private void GameEventListener_OnPlayerSpawnedFirst(IPlayerSpawnedEvent evt)
         {
-            QED.EntanglePlayer(evg.ClientPlayer).ConfigureAwait(false);
-            HighCourt.HandleSpawn(evg);
+            QED.EntanglePlayer(evt.ClientPlayer).ConfigureAwait(false);
+            HighCourt.HandleSpawn(evt);
         }
-
+        /// <summary>
+        /// This is (possibly) called when a player leaves. It should take some load off the observer thread from the QED player list.
+        /// </summary>
+        /// <param name="evt">The player that left.</param>
         private void GameEventListener_OnPlayerLeft(IPlayerDestroyedEvent evt)
         {
             QED.RemoveDeadPlayer(evt.ClientPlayer);
         }
-
         /// <summary>
         /// This function is called when a dashboard user sends a command.
         /// </summary>
@@ -602,7 +623,7 @@ namespace Impostor.Commands.Core
 
                         if (IPAddress.TryParse(message.Text, out IPAddress address))
                         {
-                            var report = new Structures.Report
+                            var report = new JusticeSystem.Report
                             {
                                 Messages = new List<string>
                                 {
@@ -921,7 +942,10 @@ namespace Impostor.Commands.Core
                 LogManager.LogError(ex.ToString(), Shared.ErrorLocation.DashboardCommandHandler);
             }
         }
-
+        /// <summary>
+        /// This is used to execute an array of tasks, on all virtual/physical cores.
+        /// </summary>
+        /// <param name="targets">The broadcast tasks.</param>
         private void ParallelExecuteBroadcast(Task[] targets)
         {
             //this should take care of some issues.
@@ -930,7 +954,6 @@ namespace Impostor.Commands.Core
                 Task.Run(()=>broadcastTask);
             });
         }
-
         /// <summary>
         /// We use this function to construct a response to the status request.
         /// </summary>
@@ -971,7 +994,6 @@ namespace Impostor.Commands.Core
                 return sb.ToString();
             }
         }
-
         /// <summary>
         /// This is used to get all the players connected to the server.
         /// </summary>
@@ -999,12 +1021,19 @@ namespace Impostor.Commands.Core
 
             return sb.ToString();
         }
-
+        /// <summary>
+        /// This is used to get a list of players. It is completely thread safe and does not access impostor data. It uses the QED.
+        /// </summary>
+        /// <returns>A player list. You may use extended functions if you don't need to iterate trough it. You can use this function as many times as you like.</returns>
         public IEnumerable<IClientPlayer> GetPlayers()
         {
             foreach (var client in QED.AcquireList()) if (client != null && client.Client.Connection != null) yield return client;
         }
-        
+        /// <summary>
+        /// This is used to add an API key and update the config.
+        /// </summary>
+        /// <param name="key">The key to add. If it is already present, this function will return.</param>
+        /// <returns>True if the key is unique and has been added.</returns>
         public bool AddApiKey(string key)
         {
             if (ApiServer.CheckKey(key))
@@ -1015,12 +1044,16 @@ namespace Impostor.Commands.Core
             else
             {
                 ApiServer.AddKey(key);
-                Configuration.APIKeys.Add(key);
+                Configuration.ApiKeys.Add(key);
                 Configuration.SaveTo(ConfigPath);
                 return true;
             }
         }
-
+        /// <summary>
+        /// This is used to remove an API key and update the config.
+        /// </summary>
+        /// <param name="key">The key to remove.</param>
+        /// <returns>True if the key was found and removed.</returns>
         public bool RemoveKey(string key)
         {
             if (!ApiServer.CheckKey(key))
@@ -1030,28 +1063,42 @@ namespace Impostor.Commands.Core
             else
             {
                 ApiServer.RemoveKey(key);
-                Configuration.APIKeys.Remove(key);
+                Configuration.ApiKeys.Remove(key);
                 Configuration.SaveTo(ConfigPath);
                 return true;
             }
         }
-
+        /// <summary>
+        /// This is used to parse HTML color names to Unity text renderer colors.
+        /// </summary>
+        /// <param name="input">The color to parse.</param>
+        /// <returns>A fully formated unity color code. Beware: the opacity is hardcoded to maximum.</returns>
         private string ParseColor(string input)
         {
             var c = Color.FromName(input);
             return $"[{c.R.ToString("X2") + c.G.ToString("X2") + c.B.ToString("X2")}FF]"; //the opacity is hardcoded, it is not needed.
         }
-
+        /// <summary>
+        /// This can be used by plugins to log data. It is just calling the log manager's LogPlugin function.
+        /// </summary>
+        /// <param name="sourcePluginName">The name of the plugin/an identifier to help locate the source of the message.</param>
+        /// <param name="message">The message to log.</param>
         public void LogPlugin(string sourcePluginName, string message)
         {
             LogManager.LogPlugin(sourcePluginName,message);
         }
-
+        /// <summary>
+        /// This is an old function, and can be used by plugins to log warnings to the console.
+        /// </summary>
+        /// <param name="message"></param>
         public void ConsolePluginWarning(string message)
         {
             Logger.LogWarning("ImpostorHQ Plugin System : " + message);
         }
-
+        /// <summary>
+        /// This is an old function, and can be used by plugins to log information to the console.
+        /// </summary>
+        /// <param name="message"></param>
         public void ConsolePluginStatus(string message)
         {
             Logger.LogInformation("ImpostorHQ Plugin System : " + message);
@@ -1059,7 +1106,9 @@ namespace Impostor.Commands.Core
 
         public delegate void DelDashboardCommandInvoked(string command, string data, bool single,
             IWebSocketConnection source);
-
+        /// <summary>
+        /// This is called when an external player command (a command registered by a plugin) is called.
+        /// </summary>
         public event DelDashboardCommandInvoked OnExternalCommandInvoked;
     }
 }

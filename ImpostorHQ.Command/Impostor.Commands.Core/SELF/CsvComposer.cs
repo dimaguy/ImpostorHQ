@@ -13,7 +13,11 @@ namespace Impostor.Commands.Core.SELF
         {
             CsvStream = new StringBuilder();
         }
-
+        /// <summary>
+        /// This will convert SELF binary data to a human-readable CSV log.
+        /// </summary>
+        /// <param name="selfLog">The SELF binary data.</param>
+        /// <returns>A CSV string formatted with UTF8, using CRLF.</returns>
         public string Compose(byte[] selfLog)
         {
             lock (Lock)
@@ -30,6 +34,11 @@ namespace Impostor.Commands.Core.SELF
                 return CsvStream.ToString();
             }
         }
+        /// <summary>
+        /// This is used to compile CSV strings.
+        /// </summary>
+        /// <param name="data">The cells to write.</param>
+        /// <returns>A CSV string. Beware that it does not contain line breaks.</returns>
         private string CompileCsv(string[] data)
         {
             string rv = "";
@@ -44,6 +53,10 @@ namespace Impostor.Commands.Core.SELF
 
             return rv;
         }
+        /// <summary>
+        /// This is used to interpret a SELF log, and convert it to rich, human-readable CSV.
+        /// </summary>
+        /// <param name="bLog">The binary log.</param>
         private void Interpret(SelfDecoder.BinaryLog bLog)
         {
             switch (bLog.Type)

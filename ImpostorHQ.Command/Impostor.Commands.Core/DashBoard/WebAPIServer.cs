@@ -6,6 +6,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using Impostor.Api.Games.Managers;
 using Impostor.Commands.Core.SELF;
 using Microsoft.Extensions.Logging;
@@ -14,11 +16,14 @@ namespace Impostor.Commands.Core.DashBoard
 {
     public class WebApiServer
     {
-        #pragma warning disable IDE0044 // Add readonly modifier
+        #region Members
         //  this shows if the server is running.
         public bool Running { get; private set; }
         // A list of authenticated clients.
-        List<IWebSocketConnection> Clients = new List<IWebSocketConnection>();
+        /// <summary>
+        /// This is the list of authenticated clients. Please lock this list before using it, because it is unsafe, thread-wise.
+        /// </summary>
+        public readonly List<IWebSocketConnection> Clients = new List<IWebSocketConnection>();
         // A message that will be sent to all clients connected.
         private Structures.BaseMessage GlobalMessage { get; set; }
         //  we need to store our commands for the handlers.
@@ -31,16 +36,22 @@ namespace Impostor.Commands.Core.DashBoard
         private WebSocketServer Server { get; set; }
         // The global logger, to write warnings and errors to the console.
         private ILogger<Class> Logger { get; set; }
-        #pragma warning restore IDE0044 // Add readonly modifier
         //  The global game manager. Here, we use it to get statistics.
         private IGameManager GameManager { get; set; }
         public Thread HeartbeatThread { get; private set; }
         //  This is used to calculate the uptime.
         public DateTime StartTime { get; private set; }
+        //  Class used to monitor vitals.
         public PerformanceMonitors Counters { get; private set; }
+        //  The plugin's main.
         private Class Master { get; set; }
+        //  The DDoS detector.
         private QuiteEffectiveDetector QEDector { get; set; }
+        //  The encryption provider.
+        //  List of attacking IP Addresses.
         private readonly List<string> AttackerAddresses = new List<string>();
+        #endregion
+
         /// <summary>
         /// This will host an API server, that can be accessed with the given API keys.
         /// </summary>
@@ -48,7 +59,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="listenInterface">The interface to bind the socket to.</param>
         /// <param name="keys">The accepted API keys.</param>
         /// <param name="logger">The global logger.</param>
-        public WebApiServer(ushort port, string listenInterface,string[] keys,ILogger<Class> logger, IGameManager manager,Class masterClass,QuiteEffectiveDetector detector)
+        public WebApiServer(ushort port, string listenInterface,string[] keys,ILogger<Class> logger, IGameManager manager,Class masterClass,QuiteEffectiveDetector detector, bool secure, X509Certificate2 certificate)
         {
             this.StartTime = DateTime.UtcNow;
             this.Counters = new PerformanceMonitors();
@@ -61,12 +72,24 @@ namespace Impostor.Commands.Core.DashBoard
             this.Logger = logger;
             this.GameManager = manager;
             this.QEDector = detector;
-            //we initialize our objects.
             GlobalMessage = new Structures.BaseMessage();
             ApiKeys = new List<string>();
             GlobalMessage.Type = Structures.MessageFlag.ConsoleLogMessage;
             ApiKeys.AddRange(keys);
-            Server = new WebSocketServer($"ws://{listenInterface}:{port}");
+            if (!secure)
+            {
+                Server = new WebSocketServer($"ws://{listenInterface}:{port}");
+                Logger.LogInformation("! WebApi server: bound insecure listener.");
+            }
+            else
+            {
+                Server = new WebSocketServer($"wss://{listenInterface}:{port}")
+                {
+                    Certificate = certificate
+                };
+                Server.EnabledSslProtocols = SslProtocols.Tls12;
+                Logger.LogInformation("! WebApi server: bound secure listener.");
+            }
             //we start the listener.
             Server.Start(socket =>
             {
@@ -106,7 +129,6 @@ namespace Impostor.Commands.Core.DashBoard
             Server.Dispose();
             ApiKeys.Clear();
         }
-        
         /// <summary>
         /// A client has connected to the websocket server.
         /// </summary>
@@ -163,27 +185,21 @@ namespace Impostor.Commands.Core.DashBoard
                                 conn.OnClose += () =>
                                 {
                                     //we handle the client disconnecting.
-                                    lock (Clients)
-                                    {
-                                        if (Clients.Contains(conn)) Clients.Remove(conn);
-                                    }
+                                    RemoveWith(conn);
                                 };
                             }
                         }
                         else if (msg.Type.Equals(Structures.MessageFlag.ConsoleCommand))
                         {
-                            lock (Clients)
+                            if (!ContainsWith(conn))
                             {
-                                if (!Clients.Contains(conn))
-                                {
-                                    //we are being attacked.
-                                    //the client is sending commands without being logged in.
-                                    conn.Close();
-                                    Logger.LogWarning($"Break-in attempt from : {conn.ConnectionInfo.ClientIpAddress}");
-                                    return;
-                                }
+                                //we are being attacked.
+                                //the client is sending commands without being logged in.
+                                conn.Close();
+                                RemoveWith(conn);
+                                Logger.LogWarning($"Break-in attempt from : {conn.ConnectionInfo.ClientIpAddress}");
+                                return;
                             }
-
                             MessageReceived(msg,conn);
                         }
                         else
@@ -204,9 +220,52 @@ namespace Impostor.Commands.Core.DashBoard
             };
         }
 
+        /// <summary>
+        /// This is used internally to remove a WebSocket connection from the authenticated clients (if present).
+        /// </summary>
+        /// <param name="conn">The connection to remove.</param>
+        private void RemoveWith(IWebSocketConnection conn)
+        {
+            lock (Clients)
+            {
+                for (int i = 0; i < Clients.Count; i++)
+                {
+                    var client = Clients[i];
+                    if (client.Equals(conn))
+                    {
+                        Clients.Remove(client);
+                        return;
+                    }
+                }
+            }
+        }
+        /// <summary>
+        /// This is used internally to check whether or not a websocket connection is an authenticated client.
+        /// </summary>
+        /// <param name="conn">The connection to check.</param>
+        /// <returns>True if the client is authenticated.</returns>
+        private bool ContainsWith(IWebSocketConnection conn)
+        {
+            lock (Clients)
+            {
+                foreach (var securableWsConnection in Clients)
+                {
+                    if (securableWsConnection.Equals(conn)) return true;
+                }
+            }
+
+            return false;
+        }
+        /// <summary>
+        /// This will get the client corresponding to the connection.
+        /// </summary>
+        /// <param name="conn"></param>
+        /// <returns>A value if the client was found. Null if it is not present.</returns>
+
         private void MessageReceived(Structures.BaseMessage message,IWebSocketConnection conn)
         {
             //the dashboard clients should not be sending something that does not start with '/'.
+            //if it is not that, it might correspond to some plugin.
             if (message.Text.StartsWith("/"))
             {
                 lock (Commands)
@@ -215,7 +274,6 @@ namespace Impostor.Commands.Core.DashBoard
                     {
                         if (message.Text.StartsWith(prefix.Key))
                         {
-                            
                             OnMessageReceived?.Invoke(message,conn);
                             state.Break();
                         }
@@ -223,7 +281,6 @@ namespace Impostor.Commands.Core.DashBoard
                 }
             }
         }
-
         /// <summary>
         /// This is used to send messages to all connected dashboards.
         /// </summary>
@@ -246,7 +303,7 @@ namespace Impostor.Commands.Core.DashBoard
                 var index = 0;
                 foreach (var client in Clients)
                 {
-                    sendTasks[index] = AsyncSend(client,data);
+                    sendTasks[index] = AsyncSend(client, data);
                     index++;
                 }
                 //if this is not working, we have an issue with the server.
@@ -254,7 +311,6 @@ namespace Impostor.Commands.Core.DashBoard
             }
 
         }
-
         /// <summary>
         /// Used to send a message to a specific dashboard API client.
         /// </summary>
@@ -267,6 +323,7 @@ namespace Impostor.Commands.Core.DashBoard
         {
             try
             {
+                if (connection == null) return;
                 var msg = new Structures.BaseMessage
                 {
                     Type = type,
@@ -279,7 +336,7 @@ namespace Impostor.Commands.Core.DashBoard
             }
             catch (Fleck.ConnectionNotAvailableException)
             {
-                lock (Clients) if (Clients.Contains(connection)) Clients.Remove(connection);
+                RemoveWith(connection);
             }
             catch (Exception ex)
             {
@@ -288,7 +345,6 @@ namespace Impostor.Commands.Core.DashBoard
                 Logger.LogError(ex.Message);
             }
         }
-
         /// <summary>
         /// Used to send data asynchronously.
         /// </summary>
@@ -305,14 +361,14 @@ namespace Impostor.Commands.Core.DashBoard
             {
                 lock (Clients)
                 {
-                    if (Clients.Contains(conn)) /*why shouldn't it...*/ Clients.Remove(conn);
+                    RemoveWith(conn);
                 }
             }
             catch (ObjectDisposedException)
             {
                 lock (Clients)
                 {
-                    if (Clients.Contains(conn)) /*why shouldn't it...*/ Clients.Remove(conn);
+                    RemoveWith(conn);
                 }
             }
             catch (Exception ex)
@@ -321,7 +377,6 @@ namespace Impostor.Commands.Core.DashBoard
                 Logger.LogError(ex.Message);
             }
         }
-
         /// <summary>
         /// Will get the UNIX time epoch.
         /// </summary>
@@ -331,7 +386,9 @@ namespace Impostor.Commands.Core.DashBoard
             TimeSpan t = DateTime.UtcNow - new DateTime(1970, 1, 1);
             return (ulong)t.TotalMilliseconds;
         }
-
+        /// <summary>
+        /// This will push a heartbeat (it will update the graphs on all dashboards).
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DoHeartbeat()
         {
@@ -347,7 +404,10 @@ namespace Impostor.Commands.Core.DashBoard
                 Thread.Sleep(1000);
             }
         }
-
+        /// <summary>
+        /// This will compile raw graph data.
+        /// </summary>
+        /// <returns></returns>
         public float[] CompileNumbers()
         {
             ulong players = 0, games = 0; //never going to need so much...
@@ -371,12 +431,20 @@ namespace Impostor.Commands.Core.DashBoard
                 Counters.MemoryUsage
             };
         }
-
+        /// <summary>
+        /// This will check to see whether or not a key is valid.
+        /// </summary>
+        /// <param name="key">The key to check.</param>
+        /// <returns>True if the key is valid.</returns>
         public bool CheckKey(string key)
         {
             lock (ApiKeys) if (ApiKeys.Contains(key)) return true;
             return false;
         }
+        /// <summary>
+        /// This will add a key to the system but WILL not update the config file. You must call the Save method manually.
+        /// </summary>
+        /// <param name="key">The key to add. If it is already present, this method will return.</param>
         public void AddKey(string key)
         {
             lock (ApiKeys)
@@ -384,6 +452,10 @@ namespace Impostor.Commands.Core.DashBoard
                 if(!ApiKeys.Contains(key)) ApiKeys.Add(key);
             }
         }
+        /// <summary>
+        /// Will remove a key from the system. It will NOT be automatically removed from the config file. You must do that manually.
+        /// </summary>
+        /// <param name="key"></param>
         public void RemoveKey(string key)
         {
             lock (ApiKeys)
@@ -391,7 +463,6 @@ namespace Impostor.Commands.Core.DashBoard
                 if (ApiKeys.Contains(key)) ApiKeys.Remove(key);
             }
         }
-
         /// <summary>
         /// Will return the number of clients/dashboards connected.
         /// </summary>
@@ -402,7 +473,6 @@ namespace Impostor.Commands.Core.DashBoard
         }
 
         public delegate void DelMessageReceived(Structures.BaseMessage message,IWebSocketConnection connection);
-
         public event DelMessageReceived OnMessageReceived;
     }
 }

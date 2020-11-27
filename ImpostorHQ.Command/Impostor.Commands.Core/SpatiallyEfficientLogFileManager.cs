@@ -17,12 +17,10 @@ namespace Impostor.Commands.Core
             this.PreviousName = CompileName();
             this.Encoder = new SelfEncoder(PreviousName);
         }
-
         private void Init()
         {
             if (!Directory.Exists(FolderPath)) Directory.CreateDirectory(FolderPath);
         }
-
         private void HandleEncoder()
         {
             if (!PreviousName.Equals(CompileName()))
@@ -37,6 +35,11 @@ namespace Impostor.Commands.Core
             return Path.Combine(FolderPath,DateTime.Now.ToString("yyyy-MM-dd") + ".self");
         }
 
+        /// <summary>
+        /// This is used to log dashboard commands.
+        /// </summary>
+        /// <param name="ipa">The IP address of the client.</param>
+        /// <param name="command">The command to log.</param>
         public void LogDashboard(IPAddress ipa,string command)
         {
             lock (FileLock)
@@ -45,7 +48,11 @@ namespace Impostor.Commands.Core
                 Encoder.WriteDashboardLog(ipa,command);
             }
         }
-
+        /// <summary>
+        /// This is used to log data from plugins.
+        /// </summary>
+        /// <param name="source">The name of the plugin. Can also be an identifier to help locate the source of the message.</param>
+        /// <param name="message">The message.</param>
         public void LogPlugin(string source, string message)
         {
             lock (FileLock)
@@ -54,7 +61,11 @@ namespace Impostor.Commands.Core
                 Encoder.WritePluginLog(source,message);
             }
         }
-
+        /// <summary>
+        /// This is used to log exceptions. You may use this from anywhere.
+        /// </summary>
+        /// <param name="trace">The error message.</param>
+        /// <param name="source">The source of the message. This can also be a location within a plugin.</param>
         public void LogError(string trace, Shared.ErrorLocation source)
         {
             lock (FileLock)
@@ -63,12 +74,17 @@ namespace Impostor.Commands.Core
                 Encoder.WriteExceptionLog(trace,source);
             }
         }
-
+        /// <summary>
+        /// This is used to signal the end of the session. Do not use this!
+        /// </summary>
         public void Finish()
         {
             Encoder.End();
         }
-
+        /// <summary>
+        /// This will get all the log file paths.
+        /// </summary>
+        /// <returns></returns>
         public string[] GetLogNames()
         {
             return Directory.GetFiles(FolderPath);

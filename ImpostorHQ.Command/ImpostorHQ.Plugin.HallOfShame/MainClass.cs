@@ -60,12 +60,12 @@ namespace ImpostorHQ.Plugin.HallOfShame
             };
         }
 
-        private void DashboardServer_OnSpecialHandlerInvoked(string handler, NetworkStream transport, string version, string address)
+        private void DashboardServer_OnSpecialHandlerInvoked(string handler, Stream transport, string version, string address)
         {
             if (handler.Equals(HttpHandler))
             {
                 byte[] data = Encoding.UTF8.GetBytes(Generator.Html.GetLatest());
-                Interface.DashboardServer.WriteHeader(version,"text/html",data.Length, " 200 OK", ref transport);
+                Interface.DashboardServer.WriteHeader(version,"text/html",data.Length, " 200 OK", transport);
                 transport.Write(data,0,data.Length);
             }
         }

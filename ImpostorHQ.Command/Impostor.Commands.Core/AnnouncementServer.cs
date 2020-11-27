@@ -10,6 +10,7 @@ namespace Impostor.Commands.Core
 {
     public class AnnouncementServer
     {
+        #region Members
         public MessageWriter Message { get; private set; }
         public MessageWriter DisconnectMessage { get; set; }
         public UdpConnectionListener Listener { get; private set; }
@@ -19,6 +20,13 @@ namespace Impostor.Commands.Core
         private byte[] ReadBuffer { get; set; }
         private FileStream IdStream { get; set; }
         private readonly object _writeLock = new object();
+        #endregion
+
+        /// <summary>
+        /// The announcement server runs on port 22024/udp and is used to... server announcements to among us players.
+        /// </summary>
+        /// <param name="master">The plugin's main.</param>
+        /// <param name="configFolder">The configuration folder, to store the message identifiers.</param>
         public AnnouncementServer(Class master,string configFolder)
         {
             this.Listener = new UdpConnectionListener(new IPEndPoint(IPAddress.Any, 22024));
@@ -40,7 +48,10 @@ namespace Impostor.Commands.Core
                 IdStream = File.Open(ConfigPath, FileMode.Open, FileAccess.ReadWrite, FileShare.Read);
             }
         }
-        //this sets a message. The next time a client connects, the message will be displayed.
+        /// <summary>
+        /// This sets a message on the server. The next time a client navigates to the menu, the message will be shown. Beware that it will only be shown once.
+        /// </summary>
+        /// <param name="message"></param>
         public void SetMessage(string message)
         {
             lock (_writeLock)
@@ -50,18 +61,19 @@ namespace Impostor.Commands.Core
                 {
                     Message.Clear(SendOption.Reliable);
                     Message.StartMessage(1);
-                    Message.WritePacked(AnnouncementId());
+                    Message.WritePacked(NextAnnouncementId());
                     Message.Write(message);
                     Message.EndMessage();
                 }
             }
         }
-
+        /// <summary>
+        /// This is used to disable the current announcement (if any).
+        /// </summary>
         public void DisableAnnouncement()
         {
             this.WillSend = false;
         }
-
         public void Shutdown()
         {
             this.Listener.Dispose();
@@ -87,12 +99,11 @@ namespace Impostor.Commands.Core
                 Master.LogManager.LogError(e.ToString(),Shared.ErrorLocation.AnnouncementServer);
             }
         }
-
         /// <summary>
         /// Will get a suitable ID for the announcement. This is vital to ensure that the message is displayed.
         /// </summary>
         /// <returns></returns>
-        private int AnnouncementId()
+        private int NextAnnouncementId()
         {
             lock (_writeLock)
             {
@@ -106,12 +117,20 @@ namespace Impostor.Commands.Core
                 return number;
             }
         }
-
+        /// <summary>
+        /// Will convert an integer to binary data, according the current system's endian.
+        /// </summary>
+        /// <param name="num">The integer to convert.</param>
+        /// <returns>4 bytes.</returns>
         private byte[] GetInt(int num)
         {
             return BitConverter.GetBytes(num);
         }
-
+        /// <summary>
+        /// This will convert 4 bytes of binary data to an integer, according the current system's endian.
+        /// </summary>
+        /// <param name="buffer">4 bytes to convert.</param>
+        /// <returns>An integer.</returns>
         private int GetInt(byte[] buffer)
         {
             return BitConverter.ToInt32(buffer);

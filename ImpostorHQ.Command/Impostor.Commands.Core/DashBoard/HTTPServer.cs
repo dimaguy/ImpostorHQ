@@ -7,17 +7,22 @@ using System.Net;
 using System.Text;
 using System.Net.Sockets;
 using System.Collections.Generic;
+using System.Net.Security;
 using System.Runtime.CompilerServices;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using Impostor.Commands.Core.SELF;
+using Microsoft.Extensions.Logging;
 
 namespace Impostor.Commands.Core.DashBoard
 {
     public class HttpServer
     {
+        #region Members
         //  our main listener.
         private TcpListener Listener { get; set; }
         private ArrayPool<byte> ReceiveBufferPool { get; set; }
-        private Impostor.Commands.Core.Class Interface { get; set; }
+        private Class MainClass { get; set; }
         /// <summary>
         /// The constant webpages. They are read from the disk and always remain constant.
         /// </summary>
@@ -29,6 +34,10 @@ namespace Impostor.Commands.Core.DashBoard
         public List<string> InvalidPageHandlers { get; private set; }
         public QuiteEffectiveDetector QEDetector { get; private set; }
         public ConcurrentBag<string> AttackerAddresses { get; private set; }
+        private bool EnableSecurity { get; set; }
+        private X509Certificate2 Certificate { get; set; }
+        #endregion
+
         /// <summary>
         /// Creates a new instance of our HTTP server. This is used to inject the HTML client into browsers.
         /// </summary>
@@ -37,26 +46,37 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="document">The webpage.</param>
         /// <param name="document404Error">An HTML document used to indicate 404 errors.</param>
         /// <param name="documentMimeError">An HTML document used to indicate that a type of data is unsupported. This should never happen under normal circumstances, as the dashboard only uses supported file types.</param>
-        public HttpServer(string listenInterface, ushort port,string document,string document404Error,string documentMimeError, Impostor.Commands.Core.Class Interface,WebApiServer apiServer, QuiteEffectiveDetector dosDetector)
+        ///<param name="secure">True if you wish to enable HTTPS.</param>
+        /// <param name="dosDetector">The DoS detector.</param>
+        /// <param name="mainClass">The plugin's main.</param>
+        /// <param name="apiServer">The WebAPI server.</param>
+        /// <param name="certGenerator">The SSL Certificate Synthesizer.</param>
+        public HttpServer(string listenInterface, ushort port,string document,string document404Error,string documentMimeError, Impostor.Commands.Core.Class mainClass,WebApiServer apiServer, QuiteEffectiveDetector dosDetector,bool secure, X509Certificate2 certificate)
         {
+            if(secure&&certificate==null) throw new Exception("What are you doing, anti?");
             //utf8 is standard.
             this.ReceiveBufferPool = ArrayPool<byte>.Shared;
             this.Document = Encoding.UTF8.GetBytes(document);
             this.Document404Error = Encoding.UTF8.GetBytes(document404Error);
             this.DocumentTypeNotSupported = Encoding.UTF8.GetBytes(documentMimeError);
             this.Running = true;
-            this.Interface = Interface;
+            this.MainClass = mainClass;
             this.Listener = new TcpListener(IPAddress.Parse(listenInterface),port);
             this.ApiServer = apiServer;
             this.LogComposer = new CsvComposer();
             this.InvalidPageHandlers = new List<string>();
             this.QEDetector = dosDetector;
             this.AttackerAddresses = new ConcurrentBag<string>();
+            this.EnableSecurity = secure;
+            this.Certificate = certificate;
             Listener.Start();
-            //we begin listening and accepting clients.
             Listener.BeginAcceptTcpClient(EndAccept, Listener);
         }
 
+        /// <summary>
+        /// This is used by plugins to hook webpages on their own handler.
+        /// </summary>
+        /// <param name="handler">The URL path to handle.</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddInvalidPageHandler(string handler)
         {
@@ -94,17 +114,14 @@ namespace Impostor.Commands.Core.DashBoard
                     return;
                 }
                 receiveBuffer = ReceiveBufferPool.Rent(1024); //should not give us trouble.
-                var ns = client.GetStream();
+                var ns = SelectProtocol(client);
                 var startPos = 0;
-
-                //maybe i will use 'read' at some point...
-                var read = ns.Read(receiveBuffer, 0, receiveBuffer.Length);
+                ns.Read(receiveBuffer, 0, receiveBuffer.Length);
                 var strData = Encoding.ASCII.GetString(receiveBuffer);
                 if (strData.Substring(0, 3) != "GET")
                 {
                     //only GET is allowed.
-                    WriteHeader("HTTP/1.1", "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented",
-                        ref ns);
+                    WriteHeader("HTTP/1.1", "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented", ns);
                     ns.Write(DocumentTypeNotSupported, 0, DocumentTypeNotSupported.Length);
                     ns.Dispose();
                     client.Dispose();
@@ -147,20 +164,19 @@ namespace Impostor.Commands.Core.DashBoard
                             //COMPARISION : Send client from memory or an unloaded file from the disk.
                             if (cleanedPath.Contains("client.html"))
                             {
-                                WriteHeader(version, "text/html", Document.Length, " 200 OK", ref ns);
+                                WriteHeader(version, "text/html", Document.Length, " 200 OK", ns);
                                 ns.Write(Document, 0, Document.Length);
                             }
                             else
                             {
                                 var document = File.ReadAllBytes(cleanedPath);
-                                WriteHeader(version, mimeType, document.Length, " 200 OK", ref ns);
+                                WriteHeader(version, mimeType, document.Length, " 200 OK", ns);
                                 ns.Write(document, 0, document.Length);
                             }
                         }
                         else
                         {
-                            WriteHeader(version, "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented",
-                                ref ns);
+                            WriteHeader(version, "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented", ns);
                             ns.Write(DocumentTypeNotSupported, 0, DocumentTypeNotSupported.Length);
                         }
                     }
@@ -173,8 +189,8 @@ namespace Impostor.Commands.Core.DashBoard
                             var key = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1);
                             if (ApiServer.CheckKey(key))
                             {
-                                var response = Encoding.UTF8.GetBytes(Interface.CompilePlayers());
-                                WriteHeader(version, "text/csv", (int) response.Length, " 200 OK", ref ns);
+                                var response = Encoding.UTF8.GetBytes(MainClass.CompilePlayers());
+                                WriteHeader(version, "text/csv", (int) response.Length, " 200 OK", ns);
                                 ns.Write(response, 0, response.Length);
                                 ns.Flush();
                                 //ApiServer.Push($"Players listed by: {address}, with key : {key}.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage);
@@ -183,7 +199,7 @@ namespace Impostor.Commands.Core.DashBoard
                             {
                                 var data = Encoding.UTF8.GetBytes(
                                     "<h1>You have entered an invalid key. Please stop trying to break into our system!</h1>");
-                                WriteHeader(version, "text/html", data.Length, " 200 OK", ref ns);
+                                WriteHeader(version, "text/html", data.Length, " 200 OK", ns);
                                 ns.Write(data, 0, data.Length);
                             }
 
@@ -199,19 +215,19 @@ namespace Impostor.Commands.Core.DashBoard
                                 {
                                     var data = Encoding.UTF8.GetBytes(
                                         "<h1>You have entered an invalid key. Please stop trying to break into our system!</h1>");
-                                    WriteHeader(version, "text/html", data.Length, " 200 OK", ref ns);
+                                    WriteHeader(version, "text/html", data.Length, " 200 OK", ns);
                                     ns.Write(data, 0, data.Length);
                                 }
                                 else
                                 {
                                     var requestedLog = Path.Combine("hqlogs",
                                         Path.GetFileNameWithoutExtension(requestData[1]) + ".self");
-                                    var logs = Interface.LogManager.GetLogNames();
+                                    var logs = MainClass.LogManager.GetLogNames();
                                     if (!logs.Contains(requestedLog))
                                     {
                                         var data = Encoding.UTF8.GetBytes(
                                             "<h1>Could not find the logs you requested.</h1>");
-                                        WriteHeader(version, "text/html", data.Length, " 404 Not Found", ref ns);
+                                        WriteHeader(version, "text/html", data.Length, " 404 Not Found", ns);
                                         ns.Write(data, 0, data.Length);
                                     }
                                     else
@@ -221,7 +237,7 @@ namespace Impostor.Commands.Core.DashBoard
                                             FileAccess.Read, FileShare.ReadWrite))
                                         {
                                             //we don't want to read while it is writing.
-                                            lock (Interface.LogManager.FileLock)
+                                            lock (MainClass.LogManager.FileLock)
                                             {
                                                 data = new byte[fs.Length];
                                                 fs.Read(data, 0, (int) fs.Length);
@@ -231,7 +247,7 @@ namespace Impostor.Commands.Core.DashBoard
                                         //i am not doing it directly off the stream so i don't lock the manager for too long...
                                         //should not be a problem, logs will be quite small.
                                         var logData = GetCsv(data);
-                                        WriteHeader(version, "text/csv", logData.Length, " 200 OK", ref ns);
+                                        WriteHeader(version, "text/csv", logData.Length, " 200 OK", ns);
                                         ns.Write(logData, 0, logData.Length);
                                     }
                                 }
@@ -245,14 +261,14 @@ namespace Impostor.Commands.Core.DashBoard
                         }
                         else
                         {
-                            WriteHeader(version, "text/html", Document404Error.Length, " 404 Not Found", ref ns);
+                            WriteHeader(version, "text/html", Document404Error.Length, " 404 Not Found", ns);
                             ns.Write(Document404Error, 0, Document404Error.Length);
                         }
                     }
                 }
                 else
                 {
-                    WriteHeader(version, "text/html", Document404Error.Length, " 404 Not Found", ref ns);
+                    WriteHeader(version, "text/html", Document404Error.Length, " 404 Not Found", ns);
                     ns.Write(Document404Error, 0, Document404Error.Length);
                 }
 
@@ -263,7 +279,7 @@ namespace Impostor.Commands.Core.DashBoard
             {
                 //                  *shutting down
                 if (!address.Equals("[BEFORE ACCEPT]"))
-                    Interface.LogManager.LogError($"SRC: {address}: {ex.ToString()}", Shared.ErrorLocation.HttpServer);
+                    MainClass.LogManager.LogError($"SRC: {address}: {ex}", Shared.ErrorLocation.HttpServer);
             }
             finally
             {
@@ -271,7 +287,31 @@ namespace Impostor.Commands.Core.DashBoard
             }
             
         }
+        /// <summary>
+        /// This will select the transport protocol.
+        /// </summary>
+        /// <param name="client">The client to process.</param>
+        /// <returns>A secure/insecure transport.</returns>
+        private Stream SelectProtocol(TcpClient client)
+        {
+            if (!EnableSecurity)
+            {
+                return (Stream)client.GetStream();
+            }
 
+            try
+            {
+                var stream = new SslStream(client.GetStream());
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+                stream.AuthenticateAsServer(Certificate, false, SslProtocols.Tls12, true);
+                return stream;
+            }
+            catch
+            {
+            }
+            //fall to insecure protocol if SSL fails to authenticate.
+            return client.GetStream();
+        }
         /// <summary>
         /// This will get the MIME type from the extension.
         /// </summary>
@@ -308,29 +348,31 @@ namespace Impostor.Commands.Core.DashBoard
                     return null;
             }
         }
-
         /// <summary>
         /// This will sanitize a path. My thinking is that somebody could add ('..') to their path, in order to probe the filesystem.
         /// </summary>
         /// <param name="target">The requested path.</param>
         /// <returns>The path is sanitized and localized to the required data folder.</returns>
-        public string GetLocalPath(string target,string dir)
+        private string GetLocalPath(string target,string dir)
         {
-            string rv;
             target = target.Replace("..",""); //don't you dare probe my filesystem!!
             dir = dir.Replace("..", "");
-            rv = Path.Combine("dashboard", dir.Replace("/",""));
-            rv = Path.Combine(rv, target);
-            return rv;
+            var result = Path.Combine("dashboard", dir.Replace("/",""));
+            result = Path.Combine(result, target);
+            return result;
         }
-
         /// <summary>
-        /// Used to shut down the HTTP server.
+        /// This is used to get CSV logs.
         /// </summary>
+        /// <param name="data">The SELF file.</param>
+        /// <returns>CSV logs formatted with UTF8 and CRLF></returns>
         private byte[] GetCsv(byte[] data)
         {
             return Encoding.UTF8.GetBytes(LogComposer.Compose(data));
         }
+        /// <summary>
+        /// This is used to shut down the server.
+        /// </summary>
         public void Shutdown()
         {
             this.Running = false;
@@ -343,7 +385,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="documentLen">The length of the following data.</param>
         /// <param name="sStatusCode">Status code.</param>
         /// <param name="stream">The transport to write to.</param>
-        public void WriteHeader(string httpVer, string mimeType,int documentLen, string sStatusCode, ref NetworkStream stream)
+        public void WriteHeader(string httpVer, string mimeType,int documentLen, string sStatusCode, Stream stream)
         {
             var sb = new StringBuilder();
             sb.Append(httpVer + sStatusCode + "\r\n");
@@ -355,9 +397,21 @@ namespace Impostor.Commands.Core.DashBoard
             stream.Write(data, 0, data.Length);
             stream.Flush();
         }
-
-        public delegate void DelHandlerInvoked(string handler, NetworkStream directTransport, string httpVer, string srcIpAddress);
-
+        /// <summary>
+        /// This can be used by plugins to easily write documents / pages to a transport stream.
+        /// </summary>
+        /// <param name="document">The document to write.</param>
+        /// <param name="mimeType">The type of document to write.</param>
+        /// <param name="stream">The HTTP(s) transport stream to write to.</param>
+        public void WriteDocument(byte[] document, string mimeType, Stream stream)
+        {
+            WriteHeader("HTTP/1.1",mimeType,document.Length," 200 OK",stream);
+            stream.Write(document,0,document.Length);
+        }
+        public delegate void DelHandlerInvoked(string handler, Stream directTransport, string httpVer, string srcIpAddress);
+        /// <summary>
+        /// This is invoked when a registered special command handler is invoked.
+        /// </summary>
         public event DelHandlerInvoked OnSpecialHandlerInvoked;
     }
 }

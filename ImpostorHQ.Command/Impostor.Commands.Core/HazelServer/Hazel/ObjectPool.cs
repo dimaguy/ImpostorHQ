@@ -64,7 +64,7 @@ namespace Hazel
         /// <param name="item">The item to return.</param>
         internal void PutObject(T item)
         {
-            if (inuse.TryRemove(item, out bool b))
+            if (inuse.TryRemove(item, out _))
             {
                 pool.Add(item);
             }
