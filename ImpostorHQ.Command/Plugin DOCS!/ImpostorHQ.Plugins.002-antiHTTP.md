@@ -1,6 +1,6 @@
 ## ImpostorHQ Plugin System - The HTTP Server
 
-In this lesson, we will be getting up close and personal with `antiHttp(s)`. We will cover the general concepts associated with it, and by the end of this lesson, you will be able to hook your own HTTP web handlers.
+In this lesson, we will be getting up close and personal with `antiHttp(s)`. We will cover the general concepts associated with it, and, by the end of this lesson, you will be able to hook your own HTTP web handlers.
 
 ## 1.What is antiHTTP?
 
