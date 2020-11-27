@@ -22,7 +22,7 @@ Instructions for more browsers will be added shortly.
 
 ##### Google chrome.
 
-Navigate to the following URL: chrome://settings/security?search=certificate. After that, scroll down and you should see something similar:
+Navigate to the following URL: `chrome://settings/security?search=certificate`. After that, scroll down and you should see something similar:
 
 ![https://femto.pw/7tt6](https://femto.pw/7tt6)
 
