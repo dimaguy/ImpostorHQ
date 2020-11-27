@@ -3,13 +3,16 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Dynamic;
+using Microsoft.Extensions.Logging;
 
 namespace Impostor.Commands.Core.QuantumExtensionDirector
 {
     public class PluginLoader
     {
         #region Members
-        public List<IPlugin> Plugins { get; private set; }
+        public List<PluginInstance> Plugins { get; private set; }
         public Type TargetType { get; private set; }
         public uint ApiVersion { get; private set; }
         public string FolderPath { get; private set; }
@@ -19,16 +22,19 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         public PluginLoader(string folderPath, QuiteExtendableDirectInterface master, uint version)
         {
             this.ApiVersion = version;
-            this.Plugins = new List<IPlugin>();
+            this.Plugins = new List<PluginInstance>();
             this.TargetType = typeof(IPlugin);
             this.FolderPath = folderPath;
             this.Master = master;
+            AppDomain.CurrentDomain.AssemblyResolve += ResolveCrossPluginDependencies;
         }
+
         /// <summary>
         /// This is called when the server is starting.
         /// </summary>
         public void LoadPlugins()
         {
+            //Fetch all types that implement the interface IPlugin and are a class
             foreach (var file in Directory.GetFiles(FolderPath))
             {
                 if (file.EndsWith(".dll"))
@@ -36,36 +42,66 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
                     Assembly.LoadFile(Path.GetFullPath(file));
                 }
             }
+            var assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            var implemented = assemblies.SelectMany(a => a.GetTypes()).Where(p => TargetType.IsAssignableFrom(p) && p.IsClass).ToArray();
 
-            //Fetch all types that implement the interface IPlugin and are a class
-            var implemented = AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(a => a.GetTypes())
-                .Where(p => TargetType.IsAssignableFrom(p) && p.IsClass)
-                .ToArray();
-            foreach (Type type in implemented)
+            for (int i = 0;i<implemented.Length;i++)
             {
-                var x = ((IPlugin)Activator.CreateInstance(type));
-                if (x != null)
+                var type = implemented[i];
+                var instance = ((IPlugin)Activator.CreateInstance(type));
+                if (instance != null)
                 {
-                    if (x.HqVersion != ApiVersion)
+                    if (instance.HqVersion != ApiVersion)
                     {
-                        Master.UnsafeDirectReference.ConsolePluginWarning($"The plugin \"{x.Name}\" is built on a different API version (current: {ApiVersion}, target: {x.HqVersion}). This may induce unwanted behavior and/or errors.");
                         //I will still go ahead, but the user should know that errors may appear.
-                        Master.UnsafeDirectReference.LogPlugin(x.Name, $"Warning: The plugin is targeting version {x.HqVersion}. Current API version: {ApiVersion}.");
+                        Master.UnsafeDirectReference.ConsolePluginWarning($"The plugin \"{instance.Name}\" is built on a different API version (current: {ApiVersion}, target: {instance.HqVersion}). This may induce unwanted behavior and/or errors.");
+                        Master.UnsafeDirectReference.LogPlugin(instance.Name, $"Warning: The plugin is targeting version {instance.HqVersion}. Current API version: {ApiVersion}.");
                     }
-                    Plugins.Add(x);
-                    Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded \"{x.Name}\" by \"{x.Author}\"");
+                    Plugins.Add(new PluginInstance()
+                    {
+                        Main = type,
+                        Instance = instance,
+                    });
+                    Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded \"{instance.Name}\" by \"{instance.Author}\"");
                 }
             }
             Stores = new string[Plugins.Count];
-            int index = 0;
-            foreach (var plugin in Plugins)
+            
+            for(int i = 0;i<Plugins.Count;i++)
             {
-                var pfs = new PluginFileSystem(Path.Combine("hqplugins", "data"),plugin.Name, this);
-                plugin.Load(Master, pfs);
-                Stores[index] = pfs.Store;
+                var pfs = new PluginFileSystem(Path.Combine("hqplugins", "data"),Plugins[i].Instance.Name, this);
+                Plugins[i].Instance.Load(Master, pfs);
+                Stores[i] = pfs.Store;
             }
             Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded {Plugins.Count} plugins.");
+        }
+        /// <summary>
+        /// This resolves cross-plugin dependencies, so that plugin writer's don't have to get dirty.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="args"></param>
+        /// <returns></returns>
+        private Assembly ResolveCrossPluginDependencies(object sender, ResolveEventArgs args)
+        {
+            if (args.Name.Contains(".resources")) return null;
+
+            Assembly assembly = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a.FullName == args.Name);
+            if (assembly != null) return assembly;
+
+            //how is it not loaded?
+            //this is dangerous.
+            //it is not a plugin, then.
+            Master.Logger.LogWarning($"ImpostorHQ Plugin Loader : Could not implicitly resolve assembly \"{args.Name}\".");
+            string filename = args.Name.Split(',')[0] + ".dll".ToLower();
+            string asmFile = Path.Combine(@"..\", "hqplugins", filename);
+            try
+            {
+                return Assembly.LoadFrom(asmFile);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>
@@ -79,10 +115,10 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
             {
                 foreach (var plugin in Plugins)
                 {
-                    if(plugin.Name.Equals(fullName)) return new CrossReferenceResult(plugin);
+                    if(plugin.Instance.Name.Contains(fullName)) return new CrossReferenceResult(plugin);
                 }
             }
-            return new CrossReferenceResult(null);
+            return new CrossReferenceResult();
         }
         /// <summary>
         /// This is called when the server is shutting down.
@@ -91,7 +127,7 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         {
             foreach (var plugin in Plugins)
             {
-                plugin.Destroy();
+                plugin.Instance.Destroy();
             }
         }
         /// <summary>
@@ -101,17 +137,23 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         public string[] GetStores() => Stores;
         public class CrossReferenceResult
         {
-            public CrossReferenceResult(IPlugin plugin)
+            public CrossReferenceResult(PluginInstance instance)
             {
-                if (plugin == null) this.Found = false;
-                else
-                {
-                    this.Found = true;
-                    this.Plugin = plugin;
-                }
+                this.Found = true;
+                this.Instance = instance;
+            }
+
+            public CrossReferenceResult()
+            {
+                this.Found = false;
             }
             public bool Found { get; private set;}
-            public IPlugin Plugin { get; private set; }
+            public PluginInstance Instance { get; private set; }
+        }
+        public struct PluginInstance
+        {
+            public Type Main { get; set; }
+            public IPlugin Instance { get; set; }
         }
     }
 }

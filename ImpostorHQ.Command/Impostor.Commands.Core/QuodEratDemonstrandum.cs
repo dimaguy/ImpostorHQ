@@ -148,7 +148,6 @@ namespace Impostor.Commands.Core
             {
                 var salt = GetCryptographicBytes(32);
                 var key = DeriveKey(pass, salt);
-                Console.WriteLine($"Key: {Convert.ToBase64String(key)}");
                 return EncryptRaw(data, key, salt, GetCryptographicBytes(16));
             }
             /// <summary>

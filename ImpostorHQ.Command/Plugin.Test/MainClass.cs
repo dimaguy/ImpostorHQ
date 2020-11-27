@@ -102,6 +102,11 @@ namespace Plugin.Test
                 }
             };
         }
+
+        public void Send(string s)
+        {
+            Console.WriteLine($"Test plugin: {s}");
+        }
         public void Destroy()
         {
             PluginBase.UnsafeDirectReference.ConsolePluginStatus("Test plugin shutting down...");
