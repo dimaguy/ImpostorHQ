@@ -154,18 +154,6 @@ function connect() {
 					openInNewTab(document.location.origin + "/logs.csv?" + document.getElementById("apikey").value + "&" + msg.Text)
 				}
 				break;
-
-
-			//	commented out for now, but could be used to transmit game room list
-			//      case "userlist":
-			//        var ul = "";
-			//        var i;
-			//
-			//        for (i=0; i < msg.users.length; i++) {
-			//          ul += msg.users[i] + "<br>";
-			//        }
-			//        document.getElementById("userlistbox").innerHTML = ul;
-			//        break;
 		}
 
 		if (text.length) {
