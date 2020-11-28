@@ -8,10 +8,12 @@ using System.Net.Sockets;
 using System.Net.Security;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Security.Authentication;
 using System.Runtime.CompilerServices;
 using Impostor.Commands.Core.SELF;
 using System.Security.Cryptography.X509Certificates;
+using System.Threading.Tasks;
 
 namespace Impostor.Commands.Core.DashBoard
 {
@@ -20,7 +22,6 @@ namespace Impostor.Commands.Core.DashBoard
         #region Members
         //  our main listener.
         private TcpListener Listener { get; set; }
-        private ArrayPool<byte> ReceiveBufferPool { get; set; }
         private Class MainClass { get; set; }
         /// <summary>
         /// The constant webpages. They are read from the disk and always remain constant.
@@ -54,7 +55,6 @@ namespace Impostor.Commands.Core.DashBoard
         {
             if(secure&&certificate==null) throw new Exception("What are you doing, anti?");
             //utf8 is standard.
-            this.ReceiveBufferPool = ArrayPool<byte>.Shared;
             this.Document = Encoding.UTF8.GetBytes(document);
             this.Document404Error = Encoding.UTF8.GetBytes(document404Error);
             this.DocumentTypeNotSupported = Encoding.UTF8.GetBytes(documentMimeError);
@@ -89,18 +89,16 @@ namespace Impostor.Commands.Core.DashBoard
         /// This is our async callback, used to accept TCP clients. The code is quite a ride!
         /// </summary>
         /// <param name="ar"></param>
-        private void EndAccept(IAsyncResult ar)
+        private async void EndAccept(IAsyncResult ar)
         {
-            var listener = (TcpListener) ar.AsyncState;
+            var listener = ar.AsyncState as TcpListener;
             if (listener == null) return;
             string address = "[BEFORE ACCEPT]";
-            byte[] receiveBuffer = null;
             if (Running) listener.BeginAcceptTcpClient(EndAccept, listener);
             try
             {
                 var client = listener.EndAcceptTcpClient(ar);
-                address = (((IPEndPoint) client.Client.RemoteEndPoint).Address).ToString();
-
+                address = (client.Client.RemoteEndPoint as IPEndPoint).Address.ToString();
                 if(QEDetector.IsAttacking(((IPEndPoint)(client.Client.RemoteEndPoint)).Address))
                 {
                     if (!AttackerAddresses.Contains(address))
@@ -112,166 +110,39 @@ namespace Impostor.Commands.Core.DashBoard
                     }
                     return;
                 }
-                receiveBuffer = ReceiveBufferPool.Rent(1024); //should not give us trouble.
                 var ns = SelectProtocol(client);
-                var startPos = 0;
-                ns.Read(receiveBuffer, 0, receiveBuffer.Length);
-                var strData = Encoding.ASCII.GetString(receiveBuffer);
-                if (strData.Substring(0, 3) != "GET")
+                using (var reader = new StreamReader(ns))
                 {
-                    //only GET is allowed.
-                    WriteHeader("HTTP/1.1", "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented", ns);
-                    ns.Write(DocumentTypeNotSupported, 0, DocumentTypeNotSupported.Length);
-                    ns.Dispose();
-                    client.Dispose();
-                    return;
-                }
-
-                // Extract the request.
-                startPos = strData.IndexOf("HTTP", 1, StringComparison.InvariantCultureIgnoreCase);
-                var version = strData.Substring(startPos, 8);
-                var request = strData.Substring(0, startPos - 1);
-                request = request.Replace("\\", "/");
-                if ((request.IndexOf(".", StringComparison.InvariantCultureIgnoreCase) < 1) && (!request.EndsWith("/")))
-                {
-                    request += "/";
-                }
-
-                startPos = request.LastIndexOf("/", StringComparison.CurrentCultureIgnoreCase) + 1;
-                var file = request.Substring(startPos);
-                var directory = request.Substring(request.IndexOf("/", StringComparison.InvariantCultureIgnoreCase),
-                    request.LastIndexOf("/", StringComparison.InvariantCultureIgnoreCase) - 3);
-                //COMPARISION : If the path is clean, move on to the next comparision. If not, send the error.
-                if (!directory.Contains("..")) //   Only root ('/') is allowed.
-                {
-                    var cleanedPath = GetLocalPath(file, directory);
-                    if (!(cleanedPath.Contains("players.csv") || cleanedPath.Contains("logs")) &&
-                        cleanedPath.Contains("?")) //you are angering me dima
+                    var strData = await reader.ReadLineAsync().ConfigureAwait(false);
+                    if (strData == null) return;
+                    var startPos = 0;
+                    if (strData.Substring(0, 3) != "GET")
                     {
-                        cleanedPath = cleanedPath.Remove(
-                            cleanedPath.IndexOf("?", StringComparison.InvariantCultureIgnoreCase),
-                            cleanedPath.Length - cleanedPath.IndexOf("?", StringComparison.InvariantCultureIgnoreCase));
+                        //only GET is allowed.
+                        await WriteHeader("HTTP/1.1", "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented", ns).ConfigureAwait(false);
+                        await ns.WriteAsync(DocumentTypeNotSupported, 0, DocumentTypeNotSupported.Length).ConfigureAwait(false);
+                        await ns.DisposeAsync().ConfigureAwait(false);
+                        client.Dispose();
+                        return;
                     }
 
-                    //COMPARISION : If file exists, move on to the next comparision. If not, send the error.
-                    if (File.Exists(cleanedPath))
+                    // Extract the request.
+                    startPos = strData.IndexOf("HTTP", 1, StringComparison.InvariantCultureIgnoreCase);
+                    var version = strData.Substring(startPos, 8);
+                    var request = strData.Substring(0, startPos - 1);
+                    request = request.Replace("\\", "/");
+                    if ((request.IndexOf(".", StringComparison.InvariantCultureIgnoreCase) < 1) &&
+                        (!request.EndsWith("/")))
                     {
-                        var mimeType = ParseMime(cleanedPath);
-                        //COMPARISION : If the file type is supported, move on to the next comparision. If not, send the error.
-                        if (mimeType != null)
-                        {
-                            //COMPARISION : Send client from memory or an unloaded file from the disk.
-                            if (cleanedPath.Contains("client.html"))
-                            {
-                                WriteHeader(version, "text/html", Document.Length, " 200 OK", ns);
-                                ns.Write(Document, 0, Document.Length);
-                            }
-                            else
-                            {
-                                var document = File.ReadAllBytes(cleanedPath);
-                                WriteHeader(version, mimeType, document.Length, " 200 OK", ns);
-                                ns.Write(document, 0, document.Length);
-                            }
-                        }
-                        else
-                        {
-                            WriteHeader(version, "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented", ns);
-                            ns.Write(DocumentTypeNotSupported, 0, DocumentTypeNotSupported.Length);
-                        }
+                        request += "/";
                     }
-                    else
-                    {
-                        List<string> handlers;
-                        lock (InvalidPageHandlers) handlers = InvalidPageHandlers.ToList();
-                        if (cleanedPath.Contains("players.csv") && cleanedPath.Contains('?'))
-                        {
-                            var key = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1);
-                            if (ApiServer.CheckKey(key))
-                            {
-                                var response = Encoding.UTF8.GetBytes(MainClass.CompilePlayers());
-                                WriteHeader(version, "text/csv", (int) response.Length, " 200 OK", ns);
-                                ns.Write(response, 0, response.Length);
-                                ns.Flush();
-                                //ApiServer.Push($"Players listed by: {address}, with key : {key}.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage);
-                            }
-                            else
-                            {
-                                var data = Encoding.UTF8.GetBytes(
-                                    "<h1>You have entered an invalid key. Please stop trying to break into our system!</h1>");
-                                WriteHeader(version, "text/html", data.Length, " 200 OK", ns);
-                                ns.Write(data, 0, data.Length);
-                            }
 
-                        }
-                        else if (cleanedPath.Contains("logs.csv") && cleanedPath.Contains('?'))
-                        {
-                            var requestData = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1).Split('&');
-                            if (requestData.Length == 2 && !string.IsNullOrEmpty(requestData[0]) &&
-                                !string.IsNullOrEmpty(requestData[1]))
-                            {
-                                var key = requestData[0];
-                                if (!ApiServer.CheckKey(key))
-                                {
-                                    var data = Encoding.UTF8.GetBytes(
-                                        "<h1>You have entered an invalid key. Please stop trying to break into our system!</h1>");
-                                    WriteHeader(version, "text/html", data.Length, " 200 OK", ns);
-                                    ns.Write(data, 0, data.Length);
-                                }
-                                else
-                                {
-                                    var requestedLog = Path.Combine("hqlogs",
-                                        Path.GetFileNameWithoutExtension(requestData[1]) + ".self");
-                                    var logs = MainClass.LogManager.GetLogNames();
-                                    if (!logs.Contains(requestedLog))
-                                    {
-                                        var data = Encoding.UTF8.GetBytes(
-                                            "<h1>Could not find the logs you requested.</h1>");
-                                        WriteHeader(version, "text/html", data.Length, " 404 Not Found", ns);
-                                        ns.Write(data, 0, data.Length);
-                                    }
-                                    else
-                                    {
-                                        byte[] data;
-                                        using (FileStream fs = new FileStream(requestedLog, FileMode.Open,
-                                            FileAccess.Read, FileShare.ReadWrite))
-                                        {
-                                            //we don't want to read while it is writing.
-                                            lock (MainClass.LogManager.FileLock)
-                                            {
-                                                data = new byte[fs.Length];
-                                                fs.Read(data, 0, (int) fs.Length);
-                                            }
-                                        }
-
-                                        //i am not doing it directly off the stream so i don't lock the manager for too long...
-                                        //should not be a problem, logs will be quite small.
-                                        var logData = GetCsv(data);
-                                        WriteHeader(version, "text/csv", logData.Length, " 200 OK", ns);
-                                        ns.Write(logData, 0, logData.Length);
-                                    }
-                                }
-                            }
-
-                        }
-                        else if (handlers.Contains(cleanedPath))
-                        {
-                            OnSpecialHandlerInvoked?.Invoke(
-                                cleanedPath.Replace("dashboard\\", "").Replace("dashboard/", ""), ns, version, address);
-                        }
-                        else
-                        {
-                            WriteHeader(version, "text/html", Document404Error.Length, " 404 Not Found", ns);
-                            ns.Write(Document404Error, 0, Document404Error.Length);
-                        }
-                    }
+                    startPos = request.LastIndexOf("/", StringComparison.CurrentCultureIgnoreCase) + 1;
+                    var file = request.Substring(startPos);
+                    var directory = request.Substring(request.IndexOf("/", StringComparison.InvariantCultureIgnoreCase), request.LastIndexOf("/", StringComparison.InvariantCultureIgnoreCase) - 3);
+                    await Process(directory, file, version, address, ns).ConfigureAwait(false);
                 }
-                else
-                {
-                    WriteHeader(version, "text/html", Document404Error.Length, " 404 Not Found", ns);
-                    ns.Write(Document404Error, 0, Document404Error.Length);
-                }
-
-                ns.Dispose();
+                await ns.DisposeAsync().ConfigureAwait(false);
                 client.Dispose();
             }
             catch (Exception ex)
@@ -282,10 +153,151 @@ namespace Impostor.Commands.Core.DashBoard
             }
             finally
             {
-                if(receiveBuffer!=null)ReceiveBufferPool.Return(receiveBuffer);
             }
             
         }
+        /// <summary>
+        /// This is used to process a client.
+        /// </summary>
+        /// <param name="directory">The requested directory.</param>
+        /// <param name="file">The requested file.</param>
+        /// <param name="version">The HTTP version to play back.</param>
+        /// <param name="address">The address of the client.</param>
+        /// <param name="ns">The transport.</param>
+        /// <returns></returns>
+        private async Task Process(string directory, string file, string version, string address, Stream ns)
+        {
+            if (!directory.Contains("..")) //   Only root ('/') is allowed.
+            {
+                var cleanedPath = GetLocalPath(file, directory);
+                if (!(cleanedPath.Contains("players.csv") || cleanedPath.Contains("logs")) &&
+                    cleanedPath.Contains("?")) //you are angering me dima
+                {
+                    cleanedPath = cleanedPath.Remove(
+                        cleanedPath.IndexOf("?", StringComparison.InvariantCultureIgnoreCase),
+                        cleanedPath.Length -
+                        cleanedPath.IndexOf("?", StringComparison.InvariantCultureIgnoreCase));
+                }
+
+                //COMPARISION : If file exists, move on to the next comparision. If not, send the error.
+                if (File.Exists(cleanedPath))
+                {
+                    var mimeType = ParseMime(cleanedPath);
+                    //COMPARISION : If the file type is supported, move on to the next comparision. If not, send the error.
+                    if (mimeType != null)
+                    {
+                        //COMPARISION : Send client from memory or an unloaded file from the disk.
+                        if (cleanedPath.Contains("client.html"))
+                        {
+                            await WriteHeader(version, "text/html", Document.Length, " 200 OK", ns).ConfigureAwait(false);
+                            await ns.WriteAsync(Document, 0, Document.Length).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            var document = File.ReadAllBytes(cleanedPath);
+                            await WriteHeader(version, mimeType, document.Length, " 200 OK", ns).ConfigureAwait(false);
+                            await ns.WriteAsync(document, 0, document.Length).ConfigureAwait(false);
+                        }
+                    }
+                    else
+                    {
+                        await WriteHeader(version, "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented", ns).ConfigureAwait(false);
+                        await ns.WriteAsync(DocumentTypeNotSupported, 0, DocumentTypeNotSupported.Length).ConfigureAwait(false);
+                    }
+                }
+                else
+                {
+                    List<string> handlers;
+                    lock (InvalidPageHandlers) handlers = InvalidPageHandlers.ToList();
+                    if (cleanedPath.Contains("players.csv") && cleanedPath.Contains('?'))
+                    {
+                        var key = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1);
+                        if (ApiServer.CheckKey(key))
+                        {
+                            var response = Encoding.UTF8.GetBytes(MainClass.CompilePlayers());
+                            await WriteHeader(version, "text/csv", (int)response.Length, " 200 OK", ns).ConfigureAwait(false);
+                            await ns.WriteAsync(response, 0, response.Length).ConfigureAwait(false);
+                            await ns.FlushAsync().ConfigureAwait(false);
+                            //ApiServer.Push($"Players listed by: {address}, with key : {key}.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage);
+                        }
+                        else
+                        {
+                            var data = Encoding.UTF8.GetBytes("<h1>You have entered an invalid key. Please stop trying to break into our system!</h1>");
+                            await WriteHeader(version, "text/html", data.Length, " 200 OK", ns).ConfigureAwait(false);
+                            await ns.WriteAsync(data, 0, data.Length).ConfigureAwait(false);
+                        }
+
+                    }
+                    else if (cleanedPath.Contains("logs.csv") && cleanedPath.Contains('?'))
+                    {
+                        var requestData = cleanedPath.Substring(cleanedPath.IndexOf('?') + 1).Split('&');
+                        if (requestData.Length == 2 && !string.IsNullOrEmpty(requestData[0]) &&
+                            !string.IsNullOrEmpty(requestData[1]))
+                        {
+                            var key = requestData[0];
+                            if (!ApiServer.CheckKey(key))
+                            {
+                                var data = Encoding.UTF8.GetBytes(
+                                    "<h1>You have entered an invalid key. Please stop trying to break into our system!</h1>");
+                                await WriteHeader(version, "text/html", data.Length, " 200 OK", ns).ConfigureAwait(false);
+                                await ns.WriteAsync(data, 0, data.Length).ConfigureAwait(false);
+                            }
+                            else
+                            {
+                                var requestedLog = Path.Combine("hqlogs",
+                                    Path.GetFileNameWithoutExtension(requestData[1]) + ".self");
+                                var logs = MainClass.LogManager.GetLogNames();
+                                if (!logs.Contains(requestedLog))
+                                {
+                                    var data = Encoding.UTF8.GetBytes(
+                                        "<h1>Could not find the logs you requested.</h1>");
+                                    await WriteHeader(version, "text/html", data.Length, " 404 Not Found", ns).ConfigureAwait(false);
+                                    await ns.WriteAsync(data, 0, data.Length).ConfigureAwait(false);
+                                }
+                                else
+                                {
+                                    byte[] data;
+                                    using (FileStream fs = new FileStream(requestedLog, FileMode.Open,
+                                        FileAccess.Read, FileShare.ReadWrite))
+                                    {
+                                        //we don't want to read while it is writing.
+                                        lock (MainClass.LogManager.FileLock)
+                                        {
+                                            data = new byte[fs.Length];
+                                            fs.Read(data, 0, (int)fs.Length);
+                                        }
+                                    }
+
+                                    //i am not doing it directly off the stream so i don't lock the manager for too long...
+                                    //should not be a problem, logs will be quite small.
+                                    var logData = GetCsv(data);
+                                    await WriteHeader(version, "text/csv", logData.Length, " 200 OK", ns).ConfigureAwait(false);
+                                    await ns.WriteAsync(logData, 0, logData.Length).ConfigureAwait(false);
+                                }
+                            }
+                        }
+
+                    }
+                    else if (handlers.Contains(cleanedPath))
+                    {
+                        OnSpecialHandlerInvoked?.Invoke(
+                            cleanedPath.Replace("dashboard\\", "").Replace("dashboard/", ""), ns, version,
+                            address);
+                    }
+                    else
+                    {
+                        await WriteHeader(version, "text/html", Document404Error.Length, " 404 Not Found", ns).ConfigureAwait(false);
+                        await ns.WriteAsync(Document404Error, 0, Document404Error.Length).ConfigureAwait(false);
+                    }
+                }
+            }
+            else
+            {
+                await WriteHeader(version, "text/html", Document404Error.Length, " 404 Not Found", ns).ConfigureAwait(false);
+                await ns.WriteAsync(Document404Error, 0, Document404Error.Length).ConfigureAwait(false);
+            }
+        }
+
         /// <summary>
         /// This will select the transport protocol.
         /// </summary>
@@ -384,7 +396,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="documentLen">The length of the following data.</param>
         /// <param name="sStatusCode">Status code.</param>
         /// <param name="stream">The transport to write to.</param>
-        public void WriteHeader(string httpVer, string mimeType,int documentLen, string sStatusCode, Stream stream)
+        public async Task WriteHeader(string httpVer, string mimeType,int documentLen, string sStatusCode, Stream stream)
         {
             var sb = new StringBuilder();
             sb.Append(httpVer + sStatusCode + "\r\n");
@@ -393,8 +405,8 @@ namespace Impostor.Commands.Core.DashBoard
             sb.Append("Accept-Ranges: bytes\r\n");
             sb.Append("Content-Length: " + documentLen + "\r\n\r\n");
             var data = Encoding.ASCII.GetBytes(sb.ToString());
-            stream.Write(data, 0, data.Length);
-            stream.Flush();
+            await stream.WriteAsync(data, 0, data.Length).ConfigureAwait(false);
+            await stream.FlushAsync().ConfigureAwait(false);
         }
         /// <summary>
         /// This can be used by plugins to easily write documents / pages to a transport stream.
