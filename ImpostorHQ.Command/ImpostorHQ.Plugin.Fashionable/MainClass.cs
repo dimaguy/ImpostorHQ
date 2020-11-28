@@ -15,7 +15,7 @@ namespace ImpostorHQ.Plugin.Fashionable
 
         public string Author => "anti";
 
-        public uint HqVersion => 3;
+        public uint HqVersion => 4;
 
         public string SkinDir { get; private set; }
 

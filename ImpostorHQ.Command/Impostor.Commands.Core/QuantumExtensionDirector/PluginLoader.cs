@@ -60,7 +60,7 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
                     Plugins.Add(new PluginInstance()
                     {
                         Main = type,
-                        Instance = instance,
+                        MainClass = instance,
                     });
                     Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded \"{instance.Name}\" by \"{instance.Author}\"");
                 }
@@ -69,8 +69,8 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
             
             for(int i = 0;i<Plugins.Count;i++)
             {
-                var pfs = new PluginFileSystem(Path.Combine("hqplugins", "data"),Plugins[i].Instance.Name, this);
-                Plugins[i].Instance.Load(Master, pfs);
+                var pfs = new PluginFileSystem(Path.Combine("hqplugins", "data"),Plugins[i].MainClass.Name, this);
+                Plugins[i].MainClass.Load(Master, pfs);
                 Stores[i] = pfs.Store;
             }
             Master.UnsafeDirectReference.ConsolePluginStatus($"Loaded {Plugins.Count} plugins.");
@@ -115,7 +115,7 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
             {
                 foreach (var plugin in Plugins)
                 {
-                    if(plugin.Instance.Name.Contains(fullName)) return new CrossReferenceResult(plugin);
+                    if(plugin.MainClass.Name.Contains(fullName)) return new CrossReferenceResult(plugin);
                 }
             }
             return new CrossReferenceResult();
@@ -127,7 +127,7 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         {
             foreach (var plugin in Plugins)
             {
-                plugin.Instance.Destroy();
+                plugin.MainClass.Destroy();
             }
         }
         /// <summary>
@@ -153,7 +153,7 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         public struct PluginInstance
         {
             public Type Main { get; set; }
-            public IPlugin Instance { get; set; }
+            public IPlugin MainClass { get; set; }
         }
     }
 }

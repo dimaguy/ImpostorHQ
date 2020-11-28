@@ -50,16 +50,10 @@ namespace Impostor.Commands.Core
         {
             public const string ServerWideBroadcast = "/broadcast";
             public const string HelpMessage = "/help";
-            public const string StatusMessage = "/status";
-            public const string BansMessage = "/bans";
-            public const string BanIpAddress = "/banip";
-            public const string BanIpAddressBlind = "/banipblind";
             public const string ListKeys = "/keys";
             public const string DeleteKey = "/removekey";
             public const string AddKey = "/addkey";
-            public const string ReloadBans = "/reloadbans";
             public const string PlayerInfo = "/playerinfo";
-            public const string UnBanAddress = "/unbanip";
             public const string ListColors = "/broadcastcolors";
             public const string ListLogs = "/logs";
             public const string FetchLog = "/fetchlog";
@@ -71,7 +65,6 @@ namespace Impostor.Commands.Core
             public const string MapChange = "/map";
             public const string ImpostorChange = "/impostors";
             public const string MaxPlayersChange = "/players";
-            public const string ReportCommand = "/report";
             public const string Help = "/help";
         }
 

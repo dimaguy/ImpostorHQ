@@ -5,9 +5,10 @@ using System.Linq;
 using System.Text.Json;
 using System.Collections.Generic;
 using Impostor.Api.Events.Player;
+using Impostor.Commands.Core;
 using Microsoft.Extensions.Logging;
 
-namespace Impostor.Commands.Core
+namespace ImpostorHQ.Plugin.HighCourt
 {
     public class JusticeSystem
     {

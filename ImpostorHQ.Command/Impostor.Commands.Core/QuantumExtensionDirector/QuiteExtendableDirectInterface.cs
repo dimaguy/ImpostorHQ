@@ -60,10 +60,6 @@ namespace Impostor.Commands.Core.QuantumExtensionDirector
         /// </summary>
         public IMessageWriterProvider MessageWriterProvider { get; set; }
         /// <summary>
-        /// The ban handler.
-        /// </summary>
-        public JusticeSystem JusticeSystem { get; set; }
-        /// <summary>
         /// An easy way to interact with in-game players, by chat.
         /// </summary>
         public GameCommandChatInterface ChatInterface { get; set; }

@@ -15,7 +15,7 @@ namespace ImpostorHQ.Plugin.DDoSInfo
 
         public string Author => "anti";
 
-        public uint HqVersion => 3;
+        public uint HqVersion => 4;
 
         public QuiteExtendableDirectInterface PluginBase { get; private set; }
         public PluginFileSystem FileSys { get; private set; }

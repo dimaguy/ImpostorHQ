@@ -1,18 +1,17 @@
 ﻿using System;
-using System.Buffers;
-using System.Collections.Concurrent;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Text;
+using System.Linq;
+using System.Buffers;
 using System.Net.Sockets;
-using System.Collections.Generic;
 using System.Net.Security;
-using System.Runtime.CompilerServices;
+using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
+using System.Runtime.CompilerServices;
 using Impostor.Commands.Core.SELF;
-using Microsoft.Extensions.Logging;
+using System.Security.Cryptography.X509Certificates;
 
 namespace Impostor.Commands.Core.DashBoard
 {
@@ -408,6 +407,7 @@ namespace Impostor.Commands.Core.DashBoard
             WriteHeader("HTTP/1.1",mimeType,document.Length," 200 OK",stream);
             stream.Write(document,0,document.Length);
         }
+       
         public delegate void DelHandlerInvoked(string handler, Stream directTransport, string httpVer, string srcIpAddress);
         /// <summary>
         /// This is invoked when a registered special command handler is invoked.

@@ -29,11 +29,11 @@ using Impostor.Api.Events.Managers;
 
 namespace Impostor.Commands.Core
 {
-    [ImpostorPlugin("ImpostorHQ","Impostor HeadQuarters API","anti, Dimaguy","0.0.4 beta")]
+    [ImpostorPlugin("ImpostorHQ","Impostor HeadQuarters API","anti, Dimaguy","0.0.7 stable")]
     public class Class : PluginBase
     {
         // this is used by the plugin loader.
-        public const int PluginApiVersion = 3;
+        public const int PluginApiVersion = 4;
 
         #region Members
         //indicates that the plugin is active.
@@ -62,7 +62,6 @@ namespace Impostor.Commands.Core
         private readonly ILogger<Class> Logger;
         //provides MessageWriters. Not used for anything, yet.
         public IMessageWriterProvider MessageWriterProvider { get; private set; }
-        public JusticeSystem HighCourt{ get; set; }
         public GameCommandChatInterface ChatInterface { get; set; }
         public IEventManager EventManager{ get; set; }
         private ParallelOptions Options { get; set; }
@@ -174,8 +173,6 @@ namespace Impostor.Commands.Core
             QEDetector = new QuiteEffectiveDetector(250);
             InitializeInterfaces();
             InitializeServers();
-            HighCourt = new JusticeSystem(BanFolder,ChatCommandCfg.ReportsRequiredForBan,Logger,ChatInterface,this);
-            HighCourt.OnPlayerBanned += PlayerBanned;
             //after we initialize everything, we can load the plugins.
             QEDi = new QuiteExtendableDirectInterface(this)
             {
@@ -190,7 +187,6 @@ namespace Impostor.Commands.Core
                 ClientManager = ClientManager,
                 EventManager = EventManager,
                 MessageWriterProvider = MessageWriterProvider,
-                JusticeSystem = HighCourt,
                 ChatInterface = ChatInterface,
                 LogManager = LogManager,
                 AnnouncementServer = AnnouncementManager,
@@ -212,7 +208,6 @@ namespace Impostor.Commands.Core
             if (ChatCommandCfg.EnableImpostorChange) GameEventListener.RegisterCommand(Structures.PlayerCommands.ImpostorChange);
             if (ChatCommandCfg.EnableMapChange) GameEventListener.RegisterCommand(Structures.PlayerCommands.MapChange);
             if (ChatCommandCfg.EnableMaxPlayersChange) GameEventListener.RegisterCommand(Structures.PlayerCommands.MaxPlayersChange);
-            if (ChatCommandCfg.EnableReportCommand) GameEventListener.RegisterCommand(Structures.PlayerCommands.ReportCommand);
             GameEventListener.RegisterCommand(Structures.PlayerCommands.Help);
 
             EventManager.RegisterListener(GameEventListener);
@@ -236,31 +231,18 @@ namespace Impostor.Commands.Core
             this.AnnouncementManager = new AnnouncementServer(this,"configs");
             ApiServer.OnMessageReceived += DashboardCommandReceived;
 
-            ApiServer.RegisterCommand(Structures.DashboardCommands.BansMessage,"=> will list the current permanent bans.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.HelpMessage, "=> will display the help message.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.ServerWideBroadcast, " <color>:<message> => will send a message to all lobbies.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.ListColors, "=> will list all the colors accepted by the /broadcast commands.");
-            ApiServer.RegisterCommand(Structures.DashboardCommands.StatusMessage,"=> will show you some general statistics about the server.");
-            ApiServer.RegisterCommand(Structures.DashboardCommands.BanIpAddress, " <ip address> => will permanently ban the IP address. The players must be connected.");
-            ApiServer.RegisterCommand(Structures.DashboardCommands.BanIpAddressBlind," <ip address> => just like the above, but the player does not need to be connected. Warning: he will not be kicked if he is connected to a game. Use the above command if that is your intention.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.ListKeys,"=> will list all registered API keys.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.AddKey,"=> will register the selected key.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.DeleteKey,"=> will delete the API key, if it is valid.");
-            ApiServer.RegisterCommand(Structures.DashboardCommands.ReloadBans,"=> this will reload the bans from the disk. This can be useful if you need to remove a ban, and don't want to restart the server. To do that, just delete the ban from the disk and execute this command.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.PlayerInfo," <username> => this will show information about a player.");
-            ApiServer.RegisterCommand(Structures.DashboardCommands.UnBanAddress," <IP address> => this is the equivalent of deleting a ban file and reloading the bans. The said player will be unbanned from the server, if he is banned.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.ListLogs,"=> will list the logs that you can then fetch.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.FetchLog, " <file, listed by /logs> => will download the log in CSV format. They will be converted to CSV on-demand, so don't spam this command, because it will use up CPU time.");
             ApiServer.RegisterCommand(Structures.DashboardCommands.AnnouncementMultiCommand," set <message> => will set that announcement, clear => will clear the message and delete it from the disk.");
         }
-        /// <summary>
-        /// This is called when a player is banned by reports.
-        /// </summary>
-        /// <param name="rep"></param>
-        private void PlayerBanned(JusticeSystem.Report rep)
-        {
-            ApiServer.Push($"Player {rep.TargetName} / {rep.Target} was banned permanently.","reportsys",Structures.MessageFlag.ConsoleLogMessage,null);
-        }
+       
         /// <summary>
         /// This is the default player command handler, which also handles commands for plugins.
         /// </summary>
@@ -277,16 +259,6 @@ namespace Impostor.Commands.Core
             
             switch (command)
             {
-                case Structures.PlayerCommands.ReportCommand:
-                {
-                    if (string.IsNullOrEmpty(data))
-                    {
-                        ChatInterface.SafeMultiMessage(source.Game, "Invalid command data. Please use /help for more information.", Structures.BroadcastType.Error, destination: source.ClientPlayer);
-                        return;
-                    }
-                    HighCourt.HandleReport(data,source);
-                    break;
-                }
                 case Structures.PlayerCommands.MapChange:
                 {
                     if (string.IsNullOrEmpty(data))
@@ -395,7 +367,6 @@ namespace Impostor.Commands.Core
         private void GameEventListener_OnPlayerSpawnedFirst(IPlayerSpawnedEvent evt)
         {
             QED.EntanglePlayer(evt.ClientPlayer).ConfigureAwait(false);
-            HighCourt.HandleSpawn(evt);
         }
         /// <summary>
         /// This is (possibly) called when a player leaves. It should take some load off the observer thread from the QED player list.
@@ -545,114 +516,6 @@ namespace Impostor.Commands.Core
                             Structures.MessageFlag.ConsoleLogMessage, client);
                         break;
                     }
-                    case Structures.DashboardCommands.StatusMessage:
-                    {
-                        if (!isSingle)
-                        {
-                            commandHandled = false;
-                            break;
-                        }
-
-                        ApiServer.PushTo("Status:\n" + CompileStatus(), Structures.ServerSources.SystemInfo,
-                            Structures.MessageFlag.ConsoleLogMessage, client);
-                        break;
-                    }
-                    case Structures.DashboardCommands.BansMessage:
-                    {
-                        if (!isSingle)
-                        {
-                            commandHandled = false;
-                            break;
-                        }
-
-                        lock (HighCourt.PermanentBans)
-                        {
-                            string response = $"  Total bans : {HighCourt.PermanentBans.Count}\n";
-                            if (HighCourt.PermanentBans.Count > 0)
-                            {
-                                //there are bans, so we add them to our message.
-                                foreach (var ban in HighCourt.PermanentBans)
-                                {
-                                    response += "  IPA : " + ban.Target.ToString() + $" / {ban.TargetName}\n";
-                                }
-                            }
-
-                            ApiServer.PushTo(response, "sysinfo", Structures.MessageFlag.ConsoleLogMessage, client);
-                        }
-
-                        break;
-                    }
-                    case Structures.DashboardCommands.BanIpAddress:
-                    {
-                        if (isSingle)
-                        {
-                            commandHandled = false;
-                            break;
-                        }
-
-                        if (IPAddress.TryParse(message.Text, out IPAddress address))
-                        {
-                            commandHandled = true;
-                            isSingle = true;
-                            if (HighCourt.BanPlayer(address, client.ConnectionInfo.ClientIpAddress))
-                            {
-                                ApiServer.Push(
-                                    $"The target [{address}] has been banned permanently by {client.ConnectionInfo.ClientIpAddress}!",
-                                    "(SERVER/CRITICAL/WIDE)", Structures.MessageFlag.ConsoleLogMessage);
-                            }
-                            else
-                            {
-                                ApiServer.PushTo("Could not find player.", Structures.ServerSources.DebugSystem,
-                                    Structures.MessageFlag.ConsoleLogMessage, client);
-                            }
-                        }
-                        else
-                        {
-                            commandHandled = false;
-                        }
-
-                        break;
-                    }
-                    case Structures.DashboardCommands.BanIpAddressBlind:
-                    {
-                        if (isSingle)
-                        {
-                            commandHandled = false;
-                            break;
-                        }
-
-                        if (IPAddress.TryParse(message.Text, out IPAddress address))
-                        {
-                            var report = new JusticeSystem.Report
-                            {
-                                Messages = new List<string>
-                                {
-                                    "<adminsys / " + DateTime.Now.ToString() + ">"
-                                },
-                                Sources = new List<string>
-                                {
-                                    client.ConnectionInfo.ClientIpAddress
-                                },
-                                Target = address.ToString(),
-                                TargetName = "<unknown>",
-                                MinutesRemaining = 0,
-                                TotalReports = 0
-                            };
-
-                            HighCourt.AddPermBan(report);
-                            ApiServer.Push(
-                                $"The target [{address}] has been blindly banned by {client.ConnectionInfo.ClientIpAddress}!",
-                                "(SERVER/CRITICAL/WIDE)", Structures.MessageFlag.ConsoleLogMessage);
-                            isSingle = true;
-                            commandHandled = true;
-                        }
-                        else
-                        {
-                            commandHandled = false;
-                        }
-
-                        break;
-                    }
                     case Structures.DashboardCommands.ListKeys:
                     {
                         if (!isSingle)
@@ -739,19 +602,6 @@ namespace Impostor.Commands.Core
 
                         break;
                     }
-                    case Structures.DashboardCommands.ReloadBans:
-                    {
-                        if (!isSingle)
-                        {
-                            commandHandled = false;
-                            break;
-                        }
-
-                        isSingle = false; //we need to show that it executed.
-                        HighCourt.ReloadBans();
-                        break;
-
-                    }
                     case Structures.DashboardCommands.PlayerInfo:
                     {
                         if (isSingle)
@@ -795,33 +645,6 @@ namespace Impostor.Commands.Core
                         ApiServer.PushTo(response.ToString(), Structures.ServerSources.SystemInfo,
                             Structures.MessageFlag.ConsoleLogMessage, client);
                         isSingle = true;
-                        break;
-                    }
-                    case Structures.DashboardCommands.UnBanAddress:
-                    {
-                        if (isSingle)
-                        {
-                            commandHandled = false;
-                            break;
-                        }
-
-                        isSingle = true;
-                        if (HighCourt.RemoveBan(message.Text))
-                        {
-                            ApiServer.PushTo($"The target player has been unbanned.",
-                                Structures.ServerSources.CommandSystem, Structures.MessageFlag.ConsoleLogMessage,
-                                client);
-                            ApiServer.Push(
-                                $"A player with the IP address [{message.Text}] has been unbanned by {client.ConnectionInfo.ClientIpAddress}.",
-                                Structures.ServerSources.DebugSystemCritical, Structures.MessageFlag.ConsoleLogMessage);
-
-                        }
-                        else
-                        {
-                            ApiServer.PushTo($"Error: the target player [{message.Text}] is not banned.",
-                                Structures.ServerSources.DebugSystem, Structures.MessageFlag.ConsoleLogMessage, client);
-                        }
-
                         break;
                     }
                     case Structures.DashboardCommands.ListLogs:
@@ -953,46 +776,6 @@ namespace Impostor.Commands.Core
             {
                 Task.Run(()=>broadcastTask);
             });
-        }
-        /// <summary>
-        /// We use this function to construct a response to the status request.
-        /// </summary>
-        /// <returns>The response to send back.</returns>
-        private string CompileStatus()
-        {
-            StringBuilder sb = new StringBuilder();
-            lock(HighCourt.IpReports) lock(HighCourt.PermanentBans) lock (GameManager.Games)
-            {
-                sb.Append($"  Total games : {GameManager.Games.Count()}\n");
-                ulong players = 0; //never going to need so much...
-                foreach (var game in GameManager.Games)
-                {
-                    foreach (var player in game.Players)
-                    {
-                        players++;
-                    }
-                }
-
-                sb.Append($"  Players connected : {players}\n");
-                sb.Append($"  Total incriminated players : {HighCourt.IpReports.Count}\n");
-                int largest = 0;
-                string name = null;
-                foreach (var ipReport in HighCourt.IpReports)
-                {
-                    if (ipReport.TotalReports > largest)
-                    {
-                        largest = ipReport.TotalReports;
-                        name = ipReport.TargetName;
-                    }
-                }
-
-                if (!String.IsNullOrEmpty(name))
-                {
-                    sb.Append($"  Most reported address - reported {largest} times : {name}\n");
-                }
-                sb.Append($"  Total bans : {HighCourt.PermanentBans.Count}\n");
-                return sb.ToString();
-            }
         }
         /// <summary>
         /// This is used to get all the players connected to the server.

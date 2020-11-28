@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using Impostor.Commands.Core;
 using System.Collections.Generic;
+using ImpostorHQ.Plugin.HighCourt;
 
 namespace ImpostorHQ.Plugin.HallOfShame.HallOfShame
 {

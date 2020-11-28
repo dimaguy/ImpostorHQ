@@ -12,7 +12,7 @@ namespace Plugin.Test
 {
     public class MainClass : IPlugin
     {
-        public uint HqVersion => 3;
+        public uint HqVersion => 4;
         public string Name => "Test / Example plugin.";
         public string Author => "anti";
         public QuiteExtendableDirectInterface PluginBase { get; private set; }
