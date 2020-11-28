@@ -42,7 +42,7 @@ function onload() {
 
 function connect() {
 	if (document.getElementById("apikey").value == null) {
-		console.log("Empty Api Key");
+		console.error("Empty Api Key");
 		return;
 	};
 	var serverUrl;
@@ -55,7 +55,7 @@ function connect() {
 	serverUrl = scheme + "://" + document.location.hostname + ":22023";
 
 	connection = new WebSocket(serverUrl);
-	console.log("***CREATED WEBSOCKET");
+	console.info("***CREATED WEBSOCKET");
 
 	connection.onopen = function (evt) {
 		console.log("***ONOPEN");
@@ -67,7 +67,7 @@ function connect() {
 		};
 		connection.send(JSON.stringify(auth));
 	};
-	console.log("***CREATED ONOPEN");
+	console.info("***CREATED ONOPEN");
 
 	connection.onerror = function (event) {
 		console.error("WebSocket error observed: ", event);
@@ -76,15 +76,15 @@ function connect() {
 		document.getElementById("text").disabled = true;
 		document.getElementById("send").disabled = true;
 	};
-	console.log("***CREATED ONERROR");
+	console.info("***CREATED ONERROR");
 
 	connection.onmessage = function (evt) {
-		console.log("***ONMESSAGE");
+		console.debug("***ONMESSAGE");
 		var box = document.getElementById("chatbox");
 		var text = "";
 		var msg = JSON.parse(evt.data);
-		console.log("Message received: ");
-		console.dir(msg);
+		console.debug("Message received: ");
+		console.debug(msg);
 		var time = new Date(msg.Date);
 		var timeStr = time.toLocaleTimeString();
 
@@ -106,7 +106,7 @@ function connect() {
 				};
 				plot();
 				firstLogin = false
-				console.log("AUTHED");
+				console.log("API Key Accepted");
 				break;
 
 			case MessageFlags.LoginApiRejected:
@@ -114,6 +114,7 @@ function connect() {
 				document.getElementById("status").innerHTML = "Api Key Error!";
 				document.getElementById("text").disabled = true;
 				document.getElementById("send").disabled = true;
+				console.log("API Key Rejected")
 				break;
 
 			case MessageFlags.DoKickOrDisconnect:
@@ -126,6 +127,7 @@ function connect() {
 				_playerchart.destroy();
 				_cpuchart.destroy();
 				_ramchart.destroy();
+				console.error("Kicked: " + msg.Text)
 				break;
 
 			case MessageFlags.HeartbeatMessage:
@@ -137,7 +139,7 @@ function connect() {
 				lobbies = tokens[0];
 				cpuUsage = tokens[3];
 				ramUsage = tokens[4];
-				console.log("HEARTBEAT");
+				console.debug("Heartbeat");
 				break;
 
 			case MessageFlags.FetchLogs:
@@ -148,21 +150,10 @@ function connect() {
 				if (msg.Flags[0] == 1) {
 					box.value += "(" + timeStr + ") [" + "Logs" + "] : " + "Success fetching log: Opening it... (You may want to accept window pop-ups permission)" + "\n";
 					box.scrollTop = box.scrollHeight;
+					console.log("Opening logfile...")
 					openInNewTab(document.location.origin + "/logs.csv?" + document.getElementById("apikey").value + "&" + msg.Text)
 				}
 				break;
-
-
-			//	commented out for now, but could be used to transmit game room list
-			//      case "userlist":
-			//        var ul = "";
-			//        var i;
-			//
-			//        for (i=0; i < msg.users.length; i++) {
-			//          ul += msg.users[i] + "<br>";
-			//        }
-			//        document.getElementById("userlistbox").innerHTML = ul;
-			//        break;
 		}
 
 		if (text.length) {
@@ -170,7 +161,7 @@ function connect() {
 			box.scrollTop = box.scrollHeight;
 		};
 	};
-	console.log("***CREATED ONMESSAGE");
+	console.info("***CREATED ONMESSAGE");
 };
 
 function send() {
@@ -181,6 +172,8 @@ function send() {
 			Type: MessageFlags.ConsoleCommand,
 			Date: Date.now()
 		};
+		console.debug("Message sent: ")
+		console.debug(msg)
 		connection.send(JSON.stringify(msg));
 		document.getElementById("text").value = "";
 	};
