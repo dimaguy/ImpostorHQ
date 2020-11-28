@@ -13,4 +13,3 @@ This software is extensible through the usage of plugins, we provide a very perm
 
 ## Usage
 Once the plugin is installed, you must run the server once. An API key(that you can use for login) and a configuration file will be created. In that configuration file, you can change your API keys, add more, remove keys, and change the ports.
-There are 3 parts to this plugin : the player chat command handler, which handles in-game commands, the WebSocket API server, which handles communication between dashboards and the server, and the HTTP server, which loads the client/dashboard onto browsers.
