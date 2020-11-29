@@ -3,17 +3,16 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Linq;
-using System.Buffers;
 using System.Net.Sockets;
 using System.Net.Security;
+using System.Threading.Tasks;
 using System.Collections.Generic;
+using Impostor.Commands.Core.SELF;
 using System.Collections.Concurrent;
-using System.Globalization;
 using System.Security.Authentication;
 using System.Runtime.CompilerServices;
-using Impostor.Commands.Core.SELF;
 using System.Security.Cryptography.X509Certificates;
-using System.Threading.Tasks;
+
 
 namespace Impostor.Commands.Core.DashBoard
 {
@@ -50,7 +49,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="dosDetector">The DoS detector.</param>
         /// <param name="mainClass">The plugin's main.</param>
         /// <param name="apiServer">The WebAPI server.</param>
-        /// <param name="certGenerator">The SSL Certificate Synthesizer.</param>
+        /// <param name="certificate">The SSL certificate to use.</param>
         public HttpServer(string listenInterface, ushort port,string document,string document404Error,string documentMimeError, Impostor.Commands.Core.Class mainClass,WebApiServer apiServer, QuiteEffectiveDetector dosDetector,bool secure, X509Certificate2 certificate)
         {
             if(secure&&certificate==null) throw new Exception("What are you doing, anti?");
@@ -171,7 +170,7 @@ namespace Impostor.Commands.Core.DashBoard
             {
                 var cleanedPath = GetLocalPath(file, directory);
                 if (!(cleanedPath.Contains("players.csv") || cleanedPath.Contains("logs")) &&
-                    cleanedPath.Contains("?")) //you are angering me dima
+                    cleanedPath.Contains("?"))
                 {
                     cleanedPath = cleanedPath.Remove(
                         cleanedPath.IndexOf("?", StringComparison.InvariantCultureIgnoreCase),
@@ -179,7 +178,6 @@ namespace Impostor.Commands.Core.DashBoard
                         cleanedPath.IndexOf("?", StringComparison.InvariantCultureIgnoreCase));
                 }
 
-                //COMPARISION : If file exists, move on to the next comparision. If not, send the error.
                 if (File.Exists(cleanedPath))
                 {
                     var mimeType = ParseMime(cleanedPath);
@@ -189,20 +187,17 @@ namespace Impostor.Commands.Core.DashBoard
                         //COMPARISION : Send client from memory or an unloaded file from the disk.
                         if (cleanedPath.Contains("client.html"))
                         {
-                            await WriteHeader(version, "text/html", Document.Length, " 200 OK", ns).ConfigureAwait(false);
-                            await ns.WriteAsync(Document, 0, Document.Length).ConfigureAwait(false);
+                            await WriteDocument(Document, "text/html", ns, version).ConfigureAwait(false);
                         }
                         else
                         {
-                            var document = File.ReadAllBytes(cleanedPath);
-                            await WriteHeader(version, mimeType, document.Length, " 200 OK", ns).ConfigureAwait(false);
-                            await ns.WriteAsync(document, 0, document.Length).ConfigureAwait(false);
+                            var document = await File.ReadAllBytesAsync(cleanedPath).ConfigureAwait(false);
+                            await WriteDocument(document, mimeType, ns, version).ConfigureAwait(false);
                         }
                     }
                     else
                     {
-                        await WriteHeader(version, "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented", ns).ConfigureAwait(false);
-                        await ns.WriteAsync(DocumentTypeNotSupported, 0, DocumentTypeNotSupported.Length).ConfigureAwait(false);
+                        await WriteDocument(DocumentTypeNotSupported, "text/html", ns, version, StatusCodes.NotImplemented501).ConfigureAwait(false);
                     }
                 }
                 else
@@ -215,16 +210,13 @@ namespace Impostor.Commands.Core.DashBoard
                         if (ApiServer.CheckKey(key))
                         {
                             var response = Encoding.UTF8.GetBytes(MainClass.CompilePlayers());
-                            await WriteHeader(version, "text/csv", (int)response.Length, " 200 OK", ns).ConfigureAwait(false);
-                            await ns.WriteAsync(response, 0, response.Length).ConfigureAwait(false);
-                            await ns.FlushAsync().ConfigureAwait(false);
-                            //ApiServer.Push($"Players listed by: {address}, with key : {key}.",Structures.ServerSources.CommandSystem,Structures.MessageFlag.ConsoleLogMessage);
+                            await WriteDocument(response, "text/csv", ns,version).ConfigureAwait(false);
+
                         }
                         else
                         {
                             var data = Encoding.UTF8.GetBytes("<h1>You have entered an invalid key. Please stop trying to break into our system!</h1>");
-                            await WriteHeader(version, "text/html", data.Length, " 200 OK", ns).ConfigureAwait(false);
-                            await ns.WriteAsync(data, 0, data.Length).ConfigureAwait(false);
+                            await WriteDocument(data, "text/html", ns, version).ConfigureAwait(false);
                         }
 
                     }
@@ -307,7 +299,7 @@ namespace Impostor.Commands.Core.DashBoard
         {
             if (!EnableSecurity)
             {
-                return (Stream)client.GetStream();
+                return client.GetStream() as Stream;
             }
 
             try
@@ -396,6 +388,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="documentLen">The length of the following data.</param>
         /// <param name="sStatusCode">Status code.</param>
         /// <param name="stream">The transport to write to.</param>
+        /// <param name="mimeType">The Mime type of the data.</param>
         public async Task WriteHeader(string httpVer, string mimeType,int documentLen, string sStatusCode, Stream stream)
         {
             var sb = new StringBuilder();
@@ -414,10 +407,14 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="document">The document to write.</param>
         /// <param name="mimeType">The type of document to write.</param>
         /// <param name="stream">The HTTP(s) transport stream to write to.</param>
-        public void WriteDocument(byte[] document, string mimeType, Stream stream)
+        /// <param name="httpVer">The HTTP version, which is HTTP/1.1 by default.</param>
+        /// <param name="status">Override the HTTP status. You may use the status codes from the StatusCodes class.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public async Task WriteDocument(byte[] document, string mimeType, Stream stream, string httpVer = "HTTP/1.1", string status = StatusCodes.Ok200)
         {
-            WriteHeader("HTTP/1.1",mimeType,document.Length," 200 OK",stream);
-            stream.Write(document,0,document.Length);
+            if (status[0] != ' ') status = ' ' + status;
+            await WriteHeader(httpVer, mimeType, document.Length, status, stream).ConfigureAwait(false);
+            await stream.WriteAsync(document,0,document.Length).ConfigureAwait(false);
         }
        
         public delegate void DelHandlerInvoked(string handler, Stream directTransport, string httpVer, string srcIpAddress);
@@ -425,5 +422,11 @@ namespace Impostor.Commands.Core.DashBoard
         /// This is invoked when a registered special command handler is invoked.
         /// </summary>
         public event DelHandlerInvoked OnSpecialHandlerInvoked;
+
+        public static class StatusCodes
+        {
+            public const string Ok200 = " 200 OK";
+            public const string NotImplemented501 = " 501 Not Implemented";
+        }
     }
 }
