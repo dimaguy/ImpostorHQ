@@ -72,7 +72,7 @@ namespace ImpostorHQ.Plugin.DDoSInfo
                             {
                                 var record = HistoricRecord.Deserialize(line);
                                 result +=
-                                    $"    IPA: {record.Address}, on: {record.AttackTime.ToString("G")}.\n";
+                                    $"    IPA: {record.Address}, on: {record.AttackTime:G}.\n";
                             }
                             PluginBase.ApiServer.PushTo(result, "DDoSInfo", Structures.MessageFlag.ConsoleLogMessage, source);
                         }

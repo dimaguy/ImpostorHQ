@@ -90,7 +90,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="ar"></param>
         private async void EndAccept(IAsyncResult ar)
         {
-            var listener = ar.AsyncState as TcpListener;
+            var listener = (TcpListener) ar.AsyncState;
             if (listener == null) return;
             string address = "[BEFORE ACCEPT]";
             if (Running) listener.BeginAcceptTcpClient(EndAccept, listener);

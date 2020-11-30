@@ -23,7 +23,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <summary>
         /// This is the list of authenticated clients. Please lock this list before using it, because it is unsafe, thread-wise.
         /// </summary>
-        public readonly List<IWebSocketConnection> Clients = new List<IWebSocketConnection>();
+        public readonly List<BlackTeaConnection> Clients = new List<BlackTeaConnection>();
         // A message that will be sent to all clients connected.
         private Structures.BaseMessage GlobalMessage { get; set; }
         //  we need to store our commands for the handlers.
@@ -47,6 +47,7 @@ namespace Impostor.Commands.Core.DashBoard
         private Class Master { get; set; }
         //  The DDoS detector.
         private QuiteEffectiveDetector QEDector { get; set; }
+        private QuodEratDemonstrandum.QuiteEnigmaticData QEData { get; set; }
         //  The encryption provider.
         //  List of attacking IP Addresses.
         private readonly List<string> AttackerAddresses = new List<string>();
@@ -72,6 +73,7 @@ namespace Impostor.Commands.Core.DashBoard
             this.Logger = logger;
             this.GameManager = manager;
             this.QEDector = detector;
+            this.QEData = new QuodEratDemonstrandum.QuiteEnigmaticData(keys);
             GlobalMessage = new Structures.BaseMessage();
             ApiKeys = new List<string>();
             GlobalMessage.Type = Structures.MessageFlag.ConsoleLogMessage;
@@ -155,8 +157,36 @@ namespace Impostor.Commands.Core.DashBoard
                 //we will handle AUTH and commands here.
                 try
                 {
-                    var msg = JsonSerializer.Deserialize<Structures.BaseMessage>(message);
-                    if (msg != null)
+                    BlackTeaConnection connection;
+                    if (!ContainsWith(conn))
+                    {
+                        var cryptoResult = QEData.TryDecrypt(message);
+                        if (cryptoResult != null)
+                        {
+                            connection = new BlackTeaConnection(conn,cryptoResult.Password);
+                        }
+                        else
+                        {
+                            var reject = new Structures.BaseMessage
+                            {
+                                Name = "reject",
+                                Date = GetTime(),
+                                Type = Structures.MessageFlag.LoginApiRejected
+                            };
+                            conn.Send(JsonSerializer.Serialize(reject));
+                            Master.LogManager.LogDashboard(IPAddress.Parse(conn.ConnectionInfo.ClientIpAddress), "[CRITICAL WARN] Failed log-in attempt.");
+                            conn.Close();
+                            //we log the issue.
+                            Logger.LogWarning($"Failed log-in attempt : {conn.ConnectionInfo.ClientIpAddress}.");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        connection = GetWith(conn);
+                    }
+                    var msg = JsonSerializer.Deserialize<Structures.BaseMessage>(QEData.Decrypt(message, connection.Key));
+                    if (msg!=null)
                     {
                         if (msg.Type.Equals(Structures.MessageFlag.LoginApiRequest))
                         {
@@ -175,7 +205,7 @@ namespace Impostor.Commands.Core.DashBoard
                             }
                             lock (Clients)
                             {
-                                Clients.Add(conn);
+                                Clients.Add(connection);
                                 Logger.LogWarning($"ImpostorHQ : New web admin client : {conn.ConnectionInfo.ClientIpAddress}");
                                 msg.Text = "You have successfully connected to ImpostorHQ!";
                                 msg.Type = Structures.MessageFlag.LoginApiAccepted;
@@ -231,7 +261,7 @@ namespace Impostor.Commands.Core.DashBoard
                 for (int i = 0; i < Clients.Count; i++)
                 {
                     var client = Clients[i];
-                    if (client.Equals(conn))
+                    if (client.Connection.Equals(conn))
                     {
                         Clients.Remove(client);
                         return;
@@ -250,17 +280,30 @@ namespace Impostor.Commands.Core.DashBoard
             {
                 foreach (var securableWsConnection in Clients)
                 {
-                    if (securableWsConnection.Equals(conn)) return true;
+                    if (securableWsConnection.Connection.Equals(conn)) return true;
                 }
             }
 
             return false;
         }
+
         /// <summary>
         /// This will get the client corresponding to the connection.
         /// </summary>
         /// <param name="conn"></param>
         /// <returns>A value if the client was found. Null if it is not present.</returns>
+        private BlackTeaConnection GetWith(IWebSocketConnection conn)
+        {
+            lock (Clients)
+            {
+                foreach (var blackTeaConnection in Clients)
+                {
+                    if (blackTeaConnection.Connection.Equals(conn)) return blackTeaConnection;
+                }
+            }
+
+            return null; //programmer error.
+        }
 
         private void MessageReceived(Structures.BaseMessage message,IWebSocketConnection conn)
         {
@@ -303,7 +346,7 @@ namespace Impostor.Commands.Core.DashBoard
                 var index = 0;
                 foreach (var client in Clients)
                 {
-                    sendTasks[index] = AsyncSend(client, data);
+                    sendTasks[index] = AsyncSend(client.Connection, QEData.Encrypt(data,client.Key));
                     index++;
                 }
                 //if this is not working, we have an issue with the server.
@@ -317,13 +360,14 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="message">The text value of the BaseMessage.</param>
         /// <param name="name">The name of the system.</param>
         /// <param name="type">The message type.</param>
-        /// <param name="connection">The target.</param>
+        /// <param name="client">The target.</param>
         /// /<param name="flags">Optional message data.</param>
-        public void PushTo(string message, string name, string type,IWebSocketConnection connection, float[] flags = null)
+        public void PushTo(string message, string name, string type,IWebSocketConnection client, float[] flags = null)
         {
             try
             {
-                if (connection == null) return;
+                var connection = GetWith(client);
+                if (connection == null) return; //programmer error
                 var msg = new Structures.BaseMessage
                 {
                     Type = type,
@@ -332,16 +376,16 @@ namespace Impostor.Commands.Core.DashBoard
                     Date = GetTime(),
                     Flags = flags
                 };
-                connection.Send(JsonSerializer.Serialize(msg));
+                connection.Send(JsonSerializer.Serialize(msg), QEData).ConfigureAwait(false);
             }
             catch (Fleck.ConnectionNotAvailableException)
             {
-                RemoveWith(connection);
+                RemoveWith(client);
             }
             catch (Exception ex)
             {
                 //we'd like all the dashboards to know that they have been betrayed.
-                Master.LogManager.LogError($"SRC : {connection.ConnectionInfo.ClientIpAddress}: " + ex.ToString(), Shared.ErrorLocation.PushTo);
+                Master.LogManager.LogError($"SRC : {client.ConnectionInfo.ClientIpAddress}: " + ex.ToString(), Shared.ErrorLocation.PushTo);
                 Logger.LogError(ex.Message);
             }
         }
@@ -474,5 +518,22 @@ namespace Impostor.Commands.Core.DashBoard
 
         public delegate void DelMessageReceived(Structures.BaseMessage message,IWebSocketConnection connection);
         public event DelMessageReceived OnMessageReceived;
+    }
+
+    public class BlackTeaConnection
+    {
+        public IWebSocketConnection Connection { get; private set; }
+        public string Key { get; private set; }
+
+        public BlackTeaConnection(IWebSocketConnection conn, string key)
+        {
+            this.Connection = conn;
+            this.Key = key;
+        }
+
+        public async Task Send(string data, QuodEratDemonstrandum.QuiteEnigmaticData qed)
+        {
+            await Connection.Send(qed.Encrypt(data, Key)).ConfigureAwait(false);
+        }
     }
 }

@@ -1,6 +1,7 @@
 "use strict";
 var connection = null;
 var firstLogin = true;
+var loggedIn = false;
 var playersOnline = 0;
 var lobbies = 0;
 var cpuUsage = 0;
@@ -17,6 +18,8 @@ var ctxCpu = cpuChart.getContext('2d');
 
 var ramChart = document.getElementById('ramChart');
 var ctxRam = ramChart.getContext('2d');
+
+var encryptionKey = "";
 
 const MessageFlags =
 {
@@ -45,6 +48,7 @@ function connect() {
 		console.error("Empty Api Key");
 		return;
 	};
+	encryptionKey = document.getElementById("apikey").value;
 	var serverUrl;
 	var scheme = "ws";
 
@@ -55,19 +59,16 @@ function connect() {
 	serverUrl = scheme + "://" + document.location.hostname + ":22023";
 
 	connection = new WebSocket(serverUrl);
-	console.info("***CREATED WEBSOCKET");
 
 	connection.onopen = function (evt) {
-		console.log("***ONOPEN");
 		document.getElementById("status").innerHTML = "";
 		var auth = {
 			Text: document.getElementById("apikey").value,
 			Type: MessageFlags.LoginApiRequest,
 			Date: Date.now()
 		};
-		connection.send(JSON.stringify(auth));
+		sendEncrypted(JSON.stringify(auth));
 	};
-	console.info("***CREATED ONOPEN");
 
 	connection.onerror = function (event) {
 		console.error("WebSocket error observed: ", event);
@@ -76,14 +77,14 @@ function connect() {
 		document.getElementById("text").disabled = true;
 		document.getElementById("send").disabled = true;
 	};
-	console.info("***CREATED ONERROR");
 
 	connection.onmessage = function (evt) {
-		console.debug("***ONMESSAGE");
 		var box = document.getElementById("chatbox");
 		var text = "";
-		var msg = JSON.parse(evt.data);
-		console.debug("Message received: ");
+		var msg;
+		if(loggedIn) msg = JSON.parse(decrypt(evt.data,encryptionKey));
+		else msg = JSON.parse(evt.data);
+
 		console.debug(msg);
 		var time = new Date(msg.Date);
 		var timeStr = time.toLocaleTimeString();
@@ -93,6 +94,8 @@ function connect() {
 				text = "(" + timeStr + ") [" + msg.Name + "] : " + msg.Text + "\n";
 				break;
 			case MessageFlags.LoginApiAccepted:
+				encryptionKey = document.getElementById("apikey").value;
+				loggedIn = true;
 				document.getElementById("status").style.color = "green";
 				document.getElementById("status").innerHTML = "Logged in!";
 				document.getElementById("text").value = "";
@@ -115,6 +118,7 @@ function connect() {
 				document.getElementById("text").disabled = true;
 				document.getElementById("send").disabled = true;
 				console.log("API Key Rejected")
+				loggedIn = false;
 				break;
 
 			case MessageFlags.DoKickOrDisconnect:
@@ -128,6 +132,7 @@ function connect() {
 				_cpuchart.destroy();
 				_ramchart.destroy();
 				console.error("Kicked: " + msg.Text)
+				loggedIn = false;
 				break;
 
 			case MessageFlags.HeartbeatMessage:
@@ -161,7 +166,6 @@ function connect() {
 			box.scrollTop = box.scrollHeight;
 		};
 	};
-	console.info("***CREATED ONMESSAGE");
 };
 
 function send() {
@@ -174,10 +178,13 @@ function send() {
 		};
 		console.debug("Message sent: ")
 		console.debug(msg)
-		connection.send(JSON.stringify(msg));
+		sendEncrypted(JSON.stringify(msg));
 		document.getElementById("text").value = "";
 	};
 };
+function sendEncrypted(data){
+	connection.send(encrypt(data,encryptionKey));
+}
 function plot() {
 	_playerchart = new Chart(ctxPlayers, {
 		type: 'line',
