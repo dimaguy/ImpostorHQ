@@ -3,6 +3,7 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Linq;
+using System.Buffers;
 using System.Net.Sockets;
 using System.Net.Security;
 using System.Threading.Tasks;
@@ -12,7 +13,6 @@ using System.Collections.Concurrent;
 using System.Security.Authentication;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography.X509Certificates;
-
 
 namespace Impostor.Commands.Core.DashBoard
 {
@@ -36,6 +36,11 @@ namespace Impostor.Commands.Core.DashBoard
         private bool EnableSecurity { get; set; }
         private X509Certificate2 Certificate { get; set; }
         #endregion
+
+        /// <summary>
+        /// Increase this value if your special handlers need a longer request. This value indicates how many characters will be read from the HTTP request.
+        /// </summary>
+        public ushort ReadSize = 128;
 
         /// <summary>
         /// Creates a new instance of our HTTP server. This is used to inject the HTML client into browsers.
@@ -92,12 +97,11 @@ namespace Impostor.Commands.Core.DashBoard
         {
             var listener = (TcpListener) ar.AsyncState;
             if (listener == null) return;
-            string address = "[BEFORE ACCEPT]";
             if (Running) listener.BeginAcceptTcpClient(EndAccept, listener);
             try
             {
                 var client = listener.EndAcceptTcpClient(ar);
-                address = (client.Client.RemoteEndPoint as IPEndPoint).Address.ToString();
+                var address = (client.Client.RemoteEndPoint as IPEndPoint).Address.ToString();
                 if(QEDetector.IsAttacking(((IPEndPoint)(client.Client.RemoteEndPoint)).Address))
                 {
                     if (!AttackerAddresses.Contains(address))
@@ -112,14 +116,14 @@ namespace Impostor.Commands.Core.DashBoard
                 var ns = SelectProtocol(client);
                 using (var reader = new StreamReader(ns))
                 {
-                    var strData = await reader.ReadLineAsync().ConfigureAwait(false);
+                    var strData = await ReaderExtensions.ReadLineSizedBuffered(reader, ReadSize).ConfigureAwait(false);
                     if (strData == null) return;
                     var startPos = 0;
                     if (strData.Substring(0, 3) != "GET")
                     {
                         //only GET is allowed.
-                        await WriteHeader("HTTP/1.1", "text/html", DocumentTypeNotSupported.Length, " 501 Not Implemented", ns).ConfigureAwait(false);
-                        await ns.WriteAsync(DocumentTypeNotSupported, 0, DocumentTypeNotSupported.Length).ConfigureAwait(false);
+                        await WriteDocument(DocumentTypeNotSupported, "text/html", ns,
+                            status: StatusCodes.NotImplemented501).ConfigureAwait(false);
                         await ns.DisposeAsync().ConfigureAwait(false);
                         client.Dispose();
                         return;
@@ -146,14 +150,9 @@ namespace Impostor.Commands.Core.DashBoard
             }
             catch (Exception ex)
             {
-                //                  *shutting down
-                if (!address.Equals("[BEFORE ACCEPT]"))
-                    MainClass.LogManager.LogError($"SRC: {address}: {ex}", Shared.ErrorLocation.HttpServer);
+                if (!this.Running) return;
+                MainClass.LogManager.LogError($"{ex.Message}", Shared.ErrorLocation.HttpServer);
             }
-            finally
-            {
-            }
-            
         }
         /// <summary>
         /// This is used to process a client.
@@ -427,6 +426,56 @@ namespace Impostor.Commands.Core.DashBoard
         {
             public const string Ok200 = " 200 OK";
             public const string NotImplemented501 = " 501 Not Implemented";
+        }
+
+        public static class ReaderExtensions
+        {
+            private static readonly ArrayPool<char> BufferPool = ArrayPool<char>.Shared;
+            public static async Task<string> ReadLineSizedBuffered(StreamReader sr, ushort length = 128)
+            {
+                char[] buffer = BufferPool.Rent(length);
+                var builder = new StringBuilder();
+                uint total = 0;
+                try
+                {
+                    while (total < length)
+                    {
+                        var read = await sr.ReadAsync(buffer).ConfigureAwait(false);
+                        if (read <= 0) break;
+                        var end = buffer[read - 1];
+                        if (end == '\n' || end == '\r')
+                        {
+                            if (read > 1)
+                            {
+                                end = buffer[read - 2];
+                                if (end == '\n' || end == '\r')
+                                {
+                                    builder.Append(buffer, 0, read - 2);
+                                }
+                                else
+                                {
+                                    builder.Append(buffer, 0, read - 1);
+                                }
+                            }
+
+                            break;
+                        }
+
+                        total += (uint) read;
+                        builder.Append(buffer,0,read);
+                    }
+
+                    return builder.ToString();
+                }
+                catch
+                {
+                    return null;
+                }
+                finally
+                {
+                    BufferPool.Return(buffer);
+                }
+            }
         }
     }
 }
