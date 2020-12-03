@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.IO;
 using System.Text;
 using System.Linq;
@@ -8,6 +9,8 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Encoder = System.Text.Encoder;
 
 namespace Impostor.Commands.Core
@@ -126,13 +129,14 @@ namespace Impostor.Commands.Core
             /// <returns></returns>
             public EnigmaticDataResult TryDecrypt(string data)
             {
+                var dataBin = Convert.FromBase64String(data);
                 foreach (var password in AcceptedPasswords)
                 {
                     try
                     {
-                        var plaintext = cryptographicFunction.Decrypt(data, password);
+                        var plaintext = cryptographicFunction.DecryptNonExceptable(dataBin, Encoding.UTF8.GetBytes(password));
                         if(plaintext == null) continue;
-                        return new EnigmaticDataResult(plaintext, password);
+                        return new EnigmaticDataResult(Encoding.UTF8.GetString(plaintext), password);
                     }
                     catch
                     {
@@ -147,7 +151,19 @@ namespace Impostor.Commands.Core
             /// <returns></returns>
             public string Decrypt(string data, string key)
             {
-                return cryptographicFunction.Decrypt(data, key);
+                try
+                {
+                    return cryptographicFunction.Decrypt(data, key);
+                }
+                catch (ArgumentException)
+                {
+                    return null;
+                }
+                catch (Exception ex)
+                {
+                    return null;
+                    //unexpected error.
+                }
             }
             /// <summary>
             /// This will encrypt the data.
@@ -171,10 +187,11 @@ namespace Impostor.Commands.Core
             }
             internal sealed class BlackTeaSharp
             {
+                readonly ArrayPool<byte> BufferPool = ArrayPool<byte>.Shared;
+                readonly ArrayPool<uint> BlockPool = ArrayPool<uint>.Shared;
                 private readonly ushort Rounds = 32;
                 private readonly uint delta = 0x9E3779B9;
-
-                private readonly MD5CryptoServiceProvider md5computer = new MD5CryptoServiceProvider();
+                private readonly MD5 md5computer = MD5.Create();
 
                 #region Final Functions
 
@@ -188,6 +205,7 @@ namespace Impostor.Commands.Core
                 {
                     return Encrypt(Encoding.UTF8.GetBytes(data), Encoding.UTF8.GetBytes(password));
                 }
+
                 /// <summary>
                 /// This is used to decrypt data.
                 /// </summary>
@@ -202,80 +220,154 @@ namespace Impostor.Commands.Core
                 #endregion
 
                 #region Encryption
+
                 private string Encrypt(byte[] data, byte[] password)
                 {
+                    var rLen = NextBlockMultiple(data.Length + 4);
                     var keyBuffer = CreateKey(password);
-                    var blockBuffer = new uint[2];
-                    var result = new byte[NextBlockMultiple(data.Length + 4)];
-                    var lengthBuffer = BitConverter.GetBytes(data.Length);
-                    Array.Copy(lengthBuffer, result, lengthBuffer.Length);
-                    Array.Copy(data, 0, result, lengthBuffer.Length, data.Length);
+                    var blockBuffer = BlockPool.Rent(2);
+                    var result = BufferPool.Rent(rLen);
+                    var lengthBuffer = BufferPool.Rent(4);
+                    var bitBuffer = BufferPool.Rent(4);
+                    FastBitConverter.SetUInt32Unsafe(lengthBuffer, (uint)data.Length, 0);
+                    Array.Copy(lengthBuffer, 0, result, 0, 4);
+                    Array.Copy(data, 0, result, 4, data.Length);
                     using (var stream = new MemoryStream(result))
                     {
-                        using (var writer = new BinaryWriter(stream))
+                        for (int i = 0; i < rLen; i += 8)
                         {
-                            for (int i = 0; i < result.Length; i += 8)
-                            {
-                                blockBuffer[0] = BitConverter.ToUInt32(result, i);
-                                blockBuffer[1] = BitConverter.ToUInt32(result, i + 4);
-                                EncryptBlock(blockBuffer, keyBuffer);
-                                writer.Write(blockBuffer[0]);
-                                writer.Write(blockBuffer[1]);
-                            }
+                            blockBuffer[0] = FastBitConverter.GetUInt32UnsafeFastest(result, (uint)i);
+                            blockBuffer[1] = FastBitConverter.GetUInt32UnsafeFastest(result, (uint)i + 4);
+                            EncryptBlock(blockBuffer, keyBuffer);
+                            FastBitConverter.SetUInt32Unsafe(bitBuffer, blockBuffer[0], 0);
+                            stream.Write(bitBuffer, 0, 4);
+                            FastBitConverter.SetUInt32Unsafe(bitBuffer, blockBuffer[1], 0);
+                            stream.Write(bitBuffer, 0, 4);
                         }
                     }
-                    return Convert.ToBase64String(result);
+
+                    var str = Convert.ToBase64String(result);
+                    BlockPool.Return(blockBuffer);
+                    BufferPool.Return(result);
+                    BufferPool.Return(lengthBuffer);
+                    BufferPool.Return(bitBuffer);
+                    BlockPool.Return(keyBuffer);
+                    return str;
                 }
-                [MethodImpl(MethodImplOptions.AggressiveInlining)]
+
+                /// <summary>
+                /// Will encrypt the specified block, with the specified key.
+                /// </summary>
+                /// <param name="block">The block to encrypt.</param>
+                /// <param name="key">The key to use.</param>
                 private void EncryptBlock(uint[] block, uint[] key)
                 {
-                    uint v0 = block[0], v1 = block[1], sum = 0, delta = 0x9E3779B9; //nothing up my sleeve
+                    uint v0 = block[0];
+                    uint v1 = block[1];
+                    uint sum = 0;
                     for (uint i = 0; i < Rounds; i++)
                     {
                         v0 += (((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + key[sum & 3]);
                         sum += delta;
                         v1 += (((v0 << 4) ^ (v0 >> 5)) + v0) ^ (sum + key[(sum >> 11) & 3]);
                     }
+
                     block[0] = v0;
                     block[1] = v1;
                 }
-
 
                 #endregion
 
                 #region Decryption
 
-                private byte[] Decrypt(byte[] data, byte[] key)
+                public byte[] Decrypt(byte[] data, byte[] key)
                 {
                     if (data.Length % 8 != 0) throw new ArgumentException("Invalid data length.");
-                    var keyBuffer = CreateKey(key); 
-                    var blockBuffer = new uint[2];  
-                    var buffer = new byte[data.Length];
+                    var keyBuffer = CreateKey(key);
+                    var blockBuffer = BlockPool.Rent(2);
+                    var buffer = BufferPool.Rent(data.Length);
+                    var bitBuffer = BufferPool.Rent(4);
                     Array.Copy(data, buffer, data.Length);
                     using (var stream = new MemoryStream(buffer))
                     {
-                        using (var writer = new BinaryWriter(stream))
+                        for (uint i = 0; i < buffer.Length; i += 8)
                         {
-                            for (int i = 0; i < buffer.Length; i += 8)
-                            {
-                                blockBuffer[0] = BitConverter.ToUInt32(buffer, i);
-                                blockBuffer[1] = BitConverter.ToUInt32(buffer, i + 4);
-                                DecryptBlock(blockBuffer, keyBuffer);
-                                writer.Write(blockBuffer[0]);
-                                writer.Write(blockBuffer[1]);
-                            }
+                            blockBuffer[0] = FastBitConverter.GetUInt32UnsafeFastest(buffer, i);
+                            blockBuffer[1] = FastBitConverter.GetUInt32UnsafeFastest(buffer, i + 4);
+                            DecryptBlock(blockBuffer, keyBuffer);
+                            FastBitConverter.SetUInt32Unsafe(bitBuffer, blockBuffer[0], 0);
+                            stream.Write(bitBuffer, 0, 4);
+                            FastBitConverter.SetUInt32Unsafe(bitBuffer, blockBuffer[1], 0);
+                            stream.Write(bitBuffer, 0, 4);
                         }
                     }
-                    // verify valid length
-                    var length = BitConverter.ToUInt32(buffer, 0);
+
+                    var length = FastBitConverter.GetUInt32UnsafeFastest(buffer, 0);
                     if (length > buffer.Length - 4)
                     {
+                        BufferPool.Return(buffer);
+                        BufferPool.Return(bitBuffer);
+                        BlockPool.Return(blockBuffer);
+                        BlockPool.Return(keyBuffer);
                         throw new ArgumentException("Length checks have failed.");
                     }
+
                     var result = new byte[length];
                     Array.Copy(buffer, 4, result, 0, length);
+                    BufferPool.Return(buffer);
+                    BufferPool.Return(bitBuffer);
+                    BlockPool.Return(blockBuffer);
+                    BlockPool.Return(keyBuffer);
                     return result;
                 }
+
+                /// <summary>
+                /// This function will not throw anything.
+                /// </summary>
+                /// <param name="data">The data to decrypt.</param>
+                /// <param name="key">The key to use.</param>
+                /// <returns>An array if successful, null if not.</returns>
+                public byte[] DecryptNonExceptable(byte[] data, byte[] key)
+                {
+                    if (data.Length % 8 != 0) return null;
+                    var keyBuffer = CreateKey(key);
+                    var blockBuffer = BlockPool.Rent(2);
+                    var buffer = BufferPool.Rent(data.Length);
+                    var bitBuffer = BufferPool.Rent(4);
+                    Array.Copy(data, buffer, data.Length);
+                    using (var stream = new MemoryStream(buffer))
+                    {
+                        for (uint i = 0; i < buffer.Length; i += 8)
+                        {
+                            blockBuffer[0] = FastBitConverter.GetUInt32UnsafeFastest(buffer, i);
+                            blockBuffer[1] = FastBitConverter.GetUInt32UnsafeFastest(buffer, i + 4);
+                            DecryptBlock(blockBuffer, keyBuffer);
+                            FastBitConverter.SetUInt32Unsafe(bitBuffer, blockBuffer[0], 0);
+                            stream.Write(bitBuffer, 0, 4);
+                            FastBitConverter.SetUInt32Unsafe(bitBuffer, blockBuffer[1], 0);
+                            stream.Write(bitBuffer, 0, 4);
+                        }
+                    }
+
+                    var length = FastBitConverter.GetUInt32UnsafeFastest(buffer, 0);
+                    if (length > buffer.Length - 4)
+                    {
+                        BufferPool.Return(buffer);
+                        BufferPool.Return(bitBuffer);
+                        BlockPool.Return(blockBuffer);
+                        BlockPool.Return(keyBuffer);
+                        return null;
+                    }
+
+                    var result = new byte[length];
+                    Array.Copy(buffer, 4, result, 0, length);
+                    BufferPool.Return(buffer);
+                    BufferPool.Return(bitBuffer);
+                    BlockPool.Return(blockBuffer);
+                    BlockPool.Return(keyBuffer);
+                    return result;
+                }
+
                 /// <summary>
                 /// Will decrypt the specified block.
                 /// </summary>
@@ -283,8 +375,8 @@ namespace Impostor.Commands.Core
                 /// <param name="key">The key to use.</param>
                 private void DecryptBlock(uint[] block, uint[] key)
                 {
-                    var v0 = block[0]; 
-                    var v1 = block[1]; 
+                    var v0 = block[0];
+                    var v1 = block[1];
                     var sum = delta * Rounds;
                     for (uint i = 0; i < Rounds; i++)
                     {
@@ -292,6 +384,7 @@ namespace Impostor.Commands.Core
                         sum -= delta;
                         v0 -= (((v1 << 4) ^ (v1 >> 5)) + v1) ^ (sum + key[sum & 3]);
                     }
+
                     block[0] = v0;
                     block[1] = v1;
                 }
@@ -307,20 +400,55 @@ namespace Impostor.Commands.Core
                 {
                     return (length + 7) / 8 * 8;
                 }
-                public uint[] CreateKey(byte[] password)
+
+                private uint[] CreateKey(byte[] password)
                 {
                     var hash = md5computer.ComputeHash(password);
-                    var signedKey = new int[]
+                    var key = BlockPool.Rent(4);
+                    key[0] = (uint)Math.Abs(FastBitConverter.GetInt32UnsafeFastest(hash, 0));
+                    key[1] = (uint)Math.Abs(FastBitConverter.GetInt32UnsafeFastest(hash, 4));
+                    key[2] = (uint)Math.Abs(FastBitConverter.GetInt32UnsafeFastest(hash, 8));
+                    key[3] = (uint)Math.Abs(FastBitConverter.GetInt32UnsafeFastest(hash, 12));
+                    return key;
+                }
+
+                /// <summary>
+                /// In my tests, this is a lot faster.
+                /// </summary>
+                static unsafe class FastBitConverter
+                {
+                    #region Uint
+
+                    public static uint GetUInt32UnsafeFastest(byte[] array, uint offset)
                     {
-                        //we cut it up into uints
-                        BitConverter.ToInt32(hash, 0), BitConverter.ToInt32(hash, 4),
-                        BitConverter.ToInt32(hash, 8), BitConverter.ToInt32(hash, 12)
-                    };
-                    return new[]
+                        fixed (byte* ptr = &array[0])
+                        {
+                            return *(uint*)(ptr + offset);
+                        }
+                    }
+
+                    public static void SetUInt32Unsafe(byte[] target, uint value, uint index)
                     {
-                        (uint) Math.Abs(signedKey[0]), (uint)Math.Abs(signedKey[1]),
-                        (uint) Math.Abs(signedKey[2]), (uint)Math.Abs(signedKey[3])
-                    };
+                        uint* p = &value;
+                        target[index] = *((byte*)p);
+                        target[++index] = *((byte*)p + 1);
+                        target[++index] = *((byte*)p + 2);
+                        target[++index] = *((byte*)p + 3);
+                    }
+
+                    #endregion
+
+                    #region Int
+
+                    public static int GetInt32UnsafeFastest(byte[] array, int offset)
+                    {
+                        fixed (byte* ptr = &array[0])
+                        {
+                            return *(int*)(ptr + offset);
+                        }
+                    }
+
+                    #endregion
                 }
             }
         }

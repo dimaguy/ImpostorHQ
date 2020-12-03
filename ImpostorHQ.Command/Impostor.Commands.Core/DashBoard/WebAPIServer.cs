@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Authentication;
 using System.Security.Cryptography.X509Certificates;
@@ -185,7 +186,10 @@ namespace Impostor.Commands.Core.DashBoard
                     {
                         connection = GetWith(conn);
                     }
-                    var msg = JsonSerializer.Deserialize<Structures.BaseMessage>(QEData.Decrypt(message, connection.Key));
+
+                    var json = QEData.Decrypt(message, connection.Key);
+                    if(json == null) return;
+                    var msg = JsonSerializer.Deserialize<Structures.BaseMessage>(json);
                     if (msg!=null)
                     {
                         if (msg.Type.Equals(Structures.MessageFlag.LoginApiRequest))
@@ -256,17 +260,23 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="conn">The connection to remove.</param>
         private void RemoveWith(IWebSocketConnection conn)
         {
+            BlackTeaConnection client = null;
             lock (Clients)
             {
-                for (int i = 0; i < Clients.Count; i++)
+                foreach (var blackTeaConnection in Clients.ToList())
                 {
-                    var client = Clients[i];
-                    if (client.Connection.Equals(conn))
+                    if (blackTeaConnection.Connection.Equals(conn))
                     {
-                        Clients.Remove(client);
-                        return;
+                        client = blackTeaConnection;
+                        break;
                     }
                 }
+            }
+
+            if (client != null)
+            {
+                //very unlikely that the collection has changed
+                lock (Clients) if (Clients.Contains(client)) Clients.Remove(client);
             }
         }
         /// <summary>
@@ -333,7 +343,7 @@ namespace Impostor.Commands.Core.DashBoard
         /// <param name="flags">Additional flags, for messages that require them.</param>
         public void Push(string message,string name,string type,float[] flags = null)
         {
-            lock(GlobalMessage) lock (Clients)
+            lock(GlobalMessage)
             {
                 if (Clients.Count == 0) return; //no connected dashboards.
                 GlobalMessage.Text = message;
@@ -344,11 +354,15 @@ namespace Impostor.Commands.Core.DashBoard
                 var data = JsonSerializer.Serialize<Structures.BaseMessage>(GlobalMessage);
                 Task[] sendTasks = new Task[Clients.Count];
                 var index = 0;
-                foreach (var client in Clients)
+                lock (Clients)
                 {
-                    sendTasks[index] = AsyncSend(client.Connection, QEData.Encrypt(data,client.Key));
-                    index++;
+                    foreach (var client in Clients.ToList())
+                    {
+                        sendTasks[index] = AsyncSend(client.Connection, QEData.Encrypt(data, client.Key));
+                        index++;
+                    }
                 }
+
                 //if this is not working, we have an issue with the server.
                 Task.WhenAny(sendTasks);
             }
@@ -403,21 +417,27 @@ namespace Impostor.Commands.Core.DashBoard
             }
             catch (TimeoutException)
             {
-                lock (Clients)
-                {
-                    RemoveWith(conn);
-                }
+                RemoveWith(conn);
             }
             catch (ObjectDisposedException)
             {
-                lock (Clients)
-                {
-                    RemoveWith(conn);
-                }
+                RemoveWith(conn);
+            }
+            catch (Fleck.ConnectionNotAvailableException)
+            {
+                RemoveWith(conn);
+            }
+            catch (Fleck.SubProtocolNegotiationFailureException)
+            {
+                RemoveWith(conn);
+            }
+            catch (Fleck.WebSocketException)
+            {
+                RemoveWith(conn);
             }
             catch (Exception ex)
             {
-                Master.LogManager.LogError(ex.ToString(),Shared.ErrorLocation.AsyncSend);
+                Master.LogManager.LogError(ex.ToString(), Shared.ErrorLocation.AsyncSend);
                 Logger.LogError(ex.Message);
             }
         }
