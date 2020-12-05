@@ -15,23 +15,45 @@ var ctxCpu = cpuChart.getContext('2d');
 
 var ramChart = document.getElementById('ramChart');
 var ctxRam = ramChart.getContext('2d');
-
+var tokens = []
+var uptime = 0
+var delaytime = 0
+var lobbynum = 0
+const delay = ms => new Promise(res => setTimeout(res, ms));
 window.onload = onload();
-function onload() {
-	var tokens = []
+async function onload() {
 	plot();
-	const randomarray = (length, max) =>
-		Array(length).fill().map(() => Math.round(Math.random() * max));
-	tokens = randomarray(5,100)
-	document.getElementById("Lobbies").innerHTML = tokens[0];
-	document.getElementById("Players").innerHTML = tokens[1];
-	document.getElementById("Uptime").innerHTML = tokens[2];
-	playersOnline = tokens[1];
-	lobbies = tokens[0];
-	cpuUsage = tokens[3];
-	ramUsage = tokens[4];
+	setInterval(setTime, 1000);
+	while (true) {
+		const randomarray = (length, min, max) =>
+			Array(length).fill().map(() => getRndInteger(min, max));
+		tokens = randomarray(5, 1, 100);
+		delaytime = getRndInteger(2000, 10000);
+		lobbynum = getRndInteger(Math.round(tokens[1] / 10), tokens[1]);
+		document.getElementById("Lobbies").innerHTML = lobbynum;
+		document.getElementById("Players").innerHTML = tokens[1];
+		playersOnline = tokens[1];
+		lobbies = lobbynum;
+		cpuUsage = tokens[3];
+		ramUsage = Math.round(Math.random() * 1024);
+		await delay(delaytime);
+	}
 }
-
+function getRndInteger(min, max) {
+	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function setTime() {
+	++uptime;
+	document.getElementById("Uptime").innerHTML = pad(parseInt(uptime / 60));
+}
+function pad(val) {
+	var valString = val + "";
+	if (valString.length < 2) {
+		return "0" + valString;
+	} else {
+		return valString;
+	}
+}
 function plot() {
 	_playerchart = new Chart(ctxPlayers, {
 		type: 'line',

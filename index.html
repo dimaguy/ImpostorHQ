@@ -41,15 +41,7 @@
 					right: -75px;
 					padding: 16px;
 				}
-            div.smoothie-chart-tooltip {
-                background: #444;
-                padding: 1em;
-                margin-top: 20px;
-                font-family: consolas;
-                color: white;
-                font-size: 10px;
-                pointer-events: none;
-            }
+        
             @font-face {
                 font-family: headerFont;
                 src: url('font/AlfaSlabOne-Regular.ttf') format('truetype');
@@ -65,9 +57,9 @@
 			<div class="header" style="display: inline;">
 				<img src="ico/apple-touch-icon-60x60.png" style="vertical-align:middle">
 				<h1 style="display: inline; vertical-align: middle; color:#ff0000; font-family: headerFont;">Impostor<b style="color: #41BB3F;">HQ</b></h1>
-				<input id="apikey" name="apikey" type="password" maxlength="50" placeholder="Your Api Key" style="display: inline; vertical-align:middle;">
+				<input id="apikey" name="apikey" type="password" maxlength="50" placeholder="Your Api Key" style="display: inline; vertical-align:middle;" value="secret" readonly>
 				<input type="button" name="login" value="Log in" style="display: inline; vertical-align:middle;">
-				<p id="status" style="display: inline;"></p>
+				<p id="status" style="display: inline;">Demo Page</p>
 				<div class="header-right">
 					<a class="active" href="">Home</a>
 				</div>
@@ -75,8 +67,21 @@
 		</div>
 		<p></p>
 		<div style="height: 100%; width: 100%; display: grid; grid-template-rows:auto auto; grid-template-columns:50% auto;">
-			<div>
-				<textarea style="color:lime; height:98%; width:92%; resize: none;" name="Console" id="chatbox" placeholder="Welcome to ImpostorHQ!" readonly></textarea>
+			<div style="position: relative;float: left;">
+				<textarea style="position:absolute; color:lime; height:98%; width:92%; resize: none;" name="Console" id="chatbox" placeholder="" readonly></textarea>
+				<div style="position:absolute;height:98%;width:92%; color:lime">
+<p>ImpostorHQ is a plugin for <a href="https://github.com/Impostor/Impostor">Impostor</a> (Among Us Private Server Implementation).
+It offers a way to monitor and manage the server remotely. It does also provide a Command System component for both admins (in a web dashboard) and players (In-Lobby commands).
+This software is extensible through the usage of plugins, we provide a very permissive api that allows to access everything that we provide in addition to impostor API itself.</p> 
+<p>
+<b>Installation</b><br/>
+1. Go on <a href="https://github.com/dimaguy/ImpostorHQ/releases">Releases</a><br/>
+2. Download the latest one<br/>
+3. Unzip it in impostor's root folder (the one where the impostor binary is in)<br/>
+4. Enjoy :)</p>
+<b>Usage</b><br/>
+Once the plugin is installed, you must run the server once. An API key(that you can use for login) and a configuration file will be created. In that configuration file, you can change your API keys, add more, remove keys, and change the ports.
+				</div>
 			</div>
 			<div>
 				<table style="border: 1px solid white; width:150px">
