@@ -1,5 +1,5 @@
 # ImpostorHQ
-[![Build Status](https://dev.azure.com/dimahq/ImpostorHQ/_apis/build/status/dimaguy.ImpostorHQ?branchName=main)](https://dev.azure.com/dimahq/ImpostorHQ/_build/latest?definitionId=1&branchName=main)  
+[![Build Status](https://dev.azure.com/dimahq/ImpostorHQ/_apis/build/status/dimaguy.ImpostorHQ?branchName=main)](https://dev.azure.com/dimahq/ImpostorHQ/_build/latest?definitionId=1&branchName=main)  [Demo Page](https://dimaguy.github.io/ImpostorHQ/)
 ImpostorHQ is a plugin for [Impostor](https://github.com/Impostor/Impostor) (Among Us Private Server Implementation).  
 It offers a way to monitor and manage the server remotely. It does also provide a Command System component for both admins (in a web dashboard) and players (In-Lobby commands).  
 
