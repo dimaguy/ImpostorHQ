@@ -79,7 +79,15 @@ This software is extensible through the usage of plugins, we provide a very perm
 1. Go on <a href="https://github.com/dimaguy/ImpostorHQ/releases">Releases</a><br/>
 2. Download the latest one<br/>
 3. Unzip it in impostor's root folder (the one where the impostor binary is in)<br/>
-4. Enjoy :)</p>
+4. Port forward 22023/tcp(WS API) and 22024/both (http server and AU announcements)<br/>
+5. Enjoy :)</p>
+<p>
+<b>Notes for docker installation</b>
+Make sure you leave mount points for:<br/>
+/app/configs -  ImpostorHQ Configs<br/>
+/app/hqplugins - ImpostorHQ Plugins<br/>
+/app/dashboard - Dashboard Files<br/>
+</p>
 <b>Usage</b><br/>
 Once the plugin is installed, you must run the server once. An API key(that you can use for login) and a configuration file will be created. In that configuration file, you can change your API keys, add more, remove keys, and change the ports.
 				</div>
