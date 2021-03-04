@@ -11,7 +11,7 @@ namespace Impostor.Commands.Core.Client
     public class BlackTeaTransport
     {
         public ClientWebSocket Socket { get; private set; }
-        private BlackTeaSharp cryptographicFunction { get; set; }
+        private BlackTeaSharp CryptographicFunction { get; set; }
         public string Key { get; private set; }
         public Action<BaseMessage> OnReceived { get; set; }
         private ArraySegment<byte> ReceiveBuffer { get; set; }
@@ -20,7 +20,7 @@ namespace Impostor.Commands.Core.Client
         public BlackTeaTransport(ClientWebSocket socket, string key, Action<BaseMessage> received)
         {
             this.Socket = socket;
-            this.cryptographicFunction = new BlackTeaSharp();
+            this.CryptographicFunction = new BlackTeaSharp();
             this.Key = key;
             this.OnReceived = received;
             this.ReceiveBuffer = new ArraySegment<byte>(new byte[1024]);
@@ -50,7 +50,7 @@ namespace Impostor.Commands.Core.Client
         {
             while (ContinueReading)
             {
-                var received = cryptographicFunction.Decrypt(await Read().ConfigureAwait(false),Key);
+                var received = CryptographicFunction.Decrypt(await Read().ConfigureAwait(false),Key);
                 OnReceived?.Invoke(JsonSerializer.Deserialize<BaseMessage>(received));
             }
         }
@@ -70,7 +70,7 @@ namespace Impostor.Commands.Core.Client
         }
         public void SendAsync(string message)
         {
-            Socket.SendAsync(Encoding.UTF8.GetBytes(cryptographicFunction.Encrypt(message,Key)),WebSocketMessageType.Text,true,CancellationToken.None).ConfigureAwait(false);
+            Socket.SendAsync(Encoding.UTF8.GetBytes(CryptographicFunction.Encrypt(message,Key)),WebSocketMessageType.Text,true,CancellationToken.None).ConfigureAwait(false);
         }
 
         public static ulong GetTime()

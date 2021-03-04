@@ -24,7 +24,7 @@ namespace Plugin.Test
         public Dictionary<IClientPlayer,IClientPlayer> HijackedPlayers = new Dictionary<IClientPlayer, IClientPlayer>();
         private void MyFunction()
         {
-            PluginBase.UnsafeDirectReference.ConsolePluginStatus("Greetings from the test plugin!");
+            PluginBase.UnsafeDirectReference.ConsolePluginStatus("Greetings from the test plugin! Warning: This should not be used in production environments!");
             PluginBase.ApiServer.RegisterCommand("/greet", "=> A test command, added by the test plugin.");
             //this is a 'low level' hook, showing how to make your own handler.
             //Please use the default OnDashboardCommandReceived event if your structure corresponds to the default one.
@@ -70,7 +70,7 @@ namespace Plugin.Test
                         if(clientPlayer.Character==null) continue;
                         if (clientPlayer.Character.PlayerInfo.PlayerName.ToLower().Equals(data))
                         {
-                            await clientPlayer.Character.SetMurderedAsync().ConfigureAwait(false);
+                            await clientPlayer.Character.MurderPlayerAsync(clientPlayer.Character).ConfigureAwait(false);
                             return;
                         }
                     }

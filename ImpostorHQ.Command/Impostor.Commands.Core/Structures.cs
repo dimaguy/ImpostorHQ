@@ -94,6 +94,7 @@ namespace Impostor.Commands.Core
             public ushort WebApiPort { get; set; }
             public ushort WebsitePort { get; set; }
             public string ListenInterface { get; set; }
+            public bool LegacyAnnouncement { get; set; }
             #endregion
             public static PluginConfiguration GetDefaultConfig()
             {
@@ -104,6 +105,7 @@ namespace Impostor.Commands.Core
                 cfg.WebApiPort = 22023;
                 cfg.WebsitePort = 22024;
                 cfg.ListenInterface = "0.0.0.0";
+                cfg.LegacyAnnouncement = false;
                 #endregion
                 return cfg;
             }
