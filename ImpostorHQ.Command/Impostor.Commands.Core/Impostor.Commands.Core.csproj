@@ -16,7 +16,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Impostor.Api" Version="1.3.0-ci.131" />
+    <PackageReference Include="Impostor.Api" Version="1.3.0" />
   </ItemGroup>
 
 </Project>
