@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using ImpostorHQ.Core.Commands;
-using ImpostorHQ.Core.Commands.Handler;
+﻿using ImpostorHQ.Core.Commands;
 using ImpostorHQ.Tests.Mocks;
 using NUnit.Framework;
 
@@ -32,7 +25,7 @@ namespace ImpostorHQ.Tests
             parser.Register(c3);
 
             var result = parser.TryParse("/test_invalid");
-            Assert.AreEqual(ParseStatus.UnknownCommand, result.Error , "Unknown no token command.");
+            Assert.AreEqual(ParseStatus.UnknownCommand, result.Error, "Unknown no token command.");
 
             result = parser.TryParse("  ");
             Assert.AreEqual(ParseStatus.WhiteSpace, result.Error, "White space input.");
@@ -61,7 +54,6 @@ namespace ImpostorHQ.Tests
             Assert.AreEqual(c3, result.Command);
             Assert.AreEqual("abc", result.Tokens![0]);
             Assert.AreEqual("def", result.Tokens![1]);
-
         }
     }
 }

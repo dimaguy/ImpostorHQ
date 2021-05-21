@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Net.Sockets;
-using System.Text;
 
 namespace ImpostorHQ.Http
 {
@@ -16,9 +13,9 @@ namespace ImpostorHQ.Http
 
         public HttpContext(HttpRequest request, Stream transport, Socket socket)
         {
-            this.Request = request;
-            this.Transport = transport;
-            this.Socket = socket;
+            Request = request;
+            Transport = transport;
+            Socket = socket;
         }
     }
 }

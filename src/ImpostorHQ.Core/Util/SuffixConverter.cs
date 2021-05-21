@@ -1,14 +1,10 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ImpostorHQ.Core.Util
 {
     public static class SuffixConverter
     {
-        private static readonly string[] Suffixes = new string[] { "bytes", "KB", "MB", "GB" };
+        private static readonly string[] Suffixes = new string[] {"bytes", "KB", "MB", "GB"};
 
         public static string Convert(long value, ushort accuracy = 2)
         {
@@ -17,9 +13,9 @@ namespace ImpostorHQ.Core.Util
                 return "0 bytes";
             }
 
-            var magnitude = (int)Math.Log(value, 1024);
+            var magnitude = (int) Math.Log(value, 1024);
 
-            var size = (decimal)value / (1L << (magnitude * 10));
+            var size = (decimal) value / (1L << (magnitude * 10));
 
             if (Math.Round(size, accuracy) >= 1000)
             {

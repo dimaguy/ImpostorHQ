@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.IO;
 using Impostor.Api.Plugins;
 using ImpostorHQ.Core.Config;
 using ImpostorHQ.Core.Http;
@@ -19,7 +14,6 @@ namespace ImpostorHQ.Core
     {
         public void ConfigureHost(IHostBuilder host)
         {
-            
         }
 
         public void ConfigureServices(IServiceCollection services)
@@ -48,7 +42,7 @@ namespace ImpostorHQ.Core
             var configurationBuilder = new ConfigurationBuilder();
             configurationBuilder.SetBasePath(Directory.GetCurrentDirectory());
             configurationBuilder.AddJsonFile("ImpostorHQ.json", true);
-            configurationBuilder.AddEnvironmentVariables(prefix: "IHQ_");
+            configurationBuilder.AddEnvironmentVariables("IHQ_");
             return configurationBuilder.Build();
         }
     }

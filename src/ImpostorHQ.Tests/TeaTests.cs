@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Reflection.Metadata.Ecma335;
 using System.Text;
-using System.Threading.Tasks;
-using ImpostorHQ.Core.Cryptography;
 using ImpostorHQ.Core.Cryptography.BlackTea;
 using NUnit.Framework;
 
@@ -27,7 +22,8 @@ namespace ImpostorHQ.Tests
             var tea = new BlackTeaCryptoServiceProvider(blockManipulator, keyGenerator, bitConverter);
 
             var password = Encoding.UTF8.GetBytes("Quod Erat Dimanstrandum");
-            var data = Encoding.UTF8.GetBytes("If you immediately know the dimalight is fire, then the security was cooked a long time ago.");
+            var data = Encoding.UTF8.GetBytes(
+                "If you immediately know the dimalight is fire, then the security was cooked a long time ago.");
 
             var cipher = tea.EncryptRaw(data, password);
             var plain = tea.DecryptRaw(cipher, password);

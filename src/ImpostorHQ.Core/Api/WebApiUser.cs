@@ -14,9 +14,9 @@ namespace ImpostorHQ.Core.Api
 
         private readonly WebApiMessageHandler _handler;
 
-        private readonly byte[] _password;
-
         private readonly MessageFactory _messageFactory;
+
+        private readonly byte[] _password;
 
         public WebApiUser(IWebSocketConnection connection,
             string password,
@@ -24,13 +24,13 @@ namespace ImpostorHQ.Core.Api
             WebApiMessageHandler messageHandler,
             MessageFactory messageFactory)
         {
-            this.Socket = connection;
-            this.Password = password;
+            Socket = connection;
+            Password = password;
 
-            this._password = Encoding.UTF8.GetBytes(password);
-            this._crypto = csp;
-            this._handler = messageHandler;
-            this._messageFactory = messageFactory;
+            _password = Encoding.UTF8.GetBytes(password);
+            _crypto = csp;
+            _handler = messageHandler;
+            _messageFactory = messageFactory;
         }
 
         public IWebSocketConnection Socket { get; }

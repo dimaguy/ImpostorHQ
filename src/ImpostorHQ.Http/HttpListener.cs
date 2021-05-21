@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -10,25 +8,24 @@ namespace ImpostorHQ.Http
 {
     public class HttpListener
     {
-        private readonly Socket _listener;
-
         private readonly CancellationTokenSource _cts;
 
         private readonly Action<HttpContext> _handler;
- 
+        private readonly Socket _listener;
+
         public HttpListener(IPEndPoint localEp, Action<HttpContext> handler)
         {
-            this._handler = handler;
+            _handler = handler;
 
-            this._cts = new CancellationTokenSource();
+            _cts = new CancellationTokenSource();
 
-            this._listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            this._listener.Bind(localEp);
+            _listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            _listener.Bind(localEp);
         }
 
         public void Start()
         {
-            this._listener.Listen(int.MaxValue);
+            _listener.Listen(int.MaxValue);
             _ = AcceptAsync();
         }
 
@@ -55,7 +52,7 @@ namespace ImpostorHQ.Http
 
                 // malformed request
                 var data = await ns.ReadLineSized(4096, _cts.Token);
-                if(data == null) return;
+                if (data == null) return;
 
                 // invalid request
                 var request = HttpParser.ParseRequest(data);

@@ -13,11 +13,12 @@ namespace ImpostorHQ.Core.Cryptography
     {
         private readonly BlackTeaCryptoServiceProvider _crypto;
 
-        private readonly string[] _passwords;
-
         private readonly ILogger _logger;
 
-        public CryptoManager(ILogger<CryptoManager> logger, BlackTeaCryptoServiceProvider btc, PasswordFile passwordProvider)
+        private readonly string[] _passwords;
+
+        public CryptoManager(ILogger<CryptoManager> logger, BlackTeaCryptoServiceProvider btc,
+            PasswordFile passwordProvider)
         {
             _logger = logger;
             _crypto = btc;
@@ -56,7 +57,7 @@ namespace ImpostorHQ.Core.Cryptography
                 var plainBytes = _crypto.DecryptRaw(cipherBytes, passwordBytes);
                 return Encoding.UTF8.GetString(plainBytes);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError($"ImpostorHQ Decrypt error: {ex.Message}");
                 return null;

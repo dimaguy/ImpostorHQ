@@ -1,15 +1,10 @@
 ﻿using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using Impostor.Api.Events;
 using Impostor.Api.Events.Managers;
 using Impostor.Api.Games.Managers;
 using ImpostorHQ.Core;
-using ImpostorHQ.Core.Api;
 using ImpostorHQ.Core.Commands.Handler;
 using ImpostorHQ.Core.Config;
 using ImpostorHQ.Core.Logs;
@@ -25,26 +20,30 @@ namespace ImpostorHQ.Module.Banning
 
         private readonly IGameManager _gameManager;
 
-        private readonly ObjectPool<StringBuilder> _sbPool;
-
         private readonly LogManager _logManager;
 
-        public BanManager(DashboardCommandHandler handler, HttpServer httpServer, PasswordFile passwordFile, BanDatabase database, IGameManager gameManager, ObjectPool<StringBuilder> sbPool, IEventManager eventManager, LogManager logManager)
-        { 
-            this._database = database;
-            this._gameManager = gameManager;
-            this._sbPool = sbPool;
-            this._logManager = logManager;
+        private readonly ObjectPool<StringBuilder> _sbPool;
 
-            this._logManager.LogInformation($"Ban Manager loaded {_database.Bans.Count()} bans.");
+        public BanManager(DashboardCommandHandler handler, HttpServer httpServer, PasswordFile passwordFile,
+            BanDatabase database, IGameManager gameManager, ObjectPool<StringBuilder> sbPool,
+            IEventManager eventManager, LogManager logManager)
+        {
+            _database = database;
+            _gameManager = gameManager;
+            _sbPool = sbPool;
+            _logManager = logManager;
+
+            _logManager.LogInformation($"Ban Manager loaded {_database.Bans.Count()} bans.");
 
             handler.AddCommand(new DashboardCommand(OnBanRequested, "/banip",
                 "bans the player with the specified IP address. Usage: /banip [address]", 1));
 
             handler.AddCommand(new DashboardCommand(OnBanBlindRequested, "/banipblind",
-                "bans the computer with the specified IP address, whether or not they are connected. Usage: /banipblind [address] [name]", 2));
+                "bans the computer with the specified IP address, whether or not they are connected. Usage: /banipblind [address] [name]",
+                2));
 
-            handler.AddCommand(new DashboardCommand(OnRemoveBanRequested, "/unbanip", "removes address from bans. Usage: /unbanip [address]",
+            handler.AddCommand(new DashboardCommand(OnRemoveBanRequested, "/unbanip",
+                "removes address from bans. Usage: /unbanip [address]",
                 1));
 
             handler.AddCommand(new DashboardCommand(BanDatabaseRequested, "/bans",
@@ -68,14 +67,14 @@ namespace ImpostorHQ.Module.Banning
 
             await _database.Remove(obj.Tokens[0]);
             await obj.User.WriteConsole($"Ban removed.", "ban system");
-            await this._logManager.LogInformation($"Ban Manager: removed ban for {obj.Tokens[0]}");
+            await _logManager.LogInformation($"Ban Manager: removed ban for {obj.Tokens[0]}");
         }
 
         private (string mine, byte[] data) GenerateHttpResponseBody()
         {
             var sb = _sbPool.Get();
 
-            sb.Append("IP Address,Date,Witnesses\r\n");
+            sb.Append("IP IpAddress,Date,Witnesses\r\n");
             foreach (var databaseBan in _database.Bans)
             {
                 sb.Append(databaseBan.IpAddress).Append(',');
@@ -100,7 +99,7 @@ namespace ImpostorHQ.Module.Banning
             {
                 case "list":
                     var sb = _sbPool.Get();
-                    sb.Append("Legend: IP Address, Time, Witness Count\r\n");
+                    sb.Append("Legend: IP IpAddress, Time, Witness Count\r\n");
 
                     foreach (var databaseBan in _database.Bans)
                     {
@@ -114,14 +113,16 @@ namespace ImpostorHQ.Module.Banning
                     await obj.User.WriteConsole(sb.ToString(), "ban system");
                     _sbPool.Return(sb);
 
-                    await this._logManager.LogInformation($"Ban Manager: listed bans for {obj.User.Socket.ConnectionInfo.ClientIpAddress}");
+                    await _logManager.LogInformation(
+                        $"Ban Manager: listed bans for {obj.User.Socket.ConnectionInfo.ClientIpAddress}");
                     return;
                 case "purge":
                     var count = _database.Bans.Count();
                     await _database.Clear();
                     await obj.User.WriteConsole($"Purged {count} records.", "ban system");
 
-                    await this._logManager.LogInformation($"Ban Manager: PURGED bans for {obj.User.Socket.ConnectionInfo.ClientIpAddress}");
+                    await _logManager.LogInformation(
+                        $"Ban Manager: PURGED bans for {obj.User.Socket.ConnectionInfo.ClientIpAddress}");
                     return;
                 default:
                     await obj.User.WriteConsole("Invalid operation.", "ban system");
@@ -145,7 +146,8 @@ namespace ImpostorHQ.Module.Banning
 
             await obj.User.WriteConsole("Computer banned.", "ban system");
 
-            await this._logManager.LogInformation($"Ban Manager: blind banned {ipa} for {obj.User.Socket.ConnectionInfo.ClientIpAddress}");
+            await _logManager.LogInformation(
+                $"Ban Manager: blind banned {ipa} for {obj.User.Socket.ConnectionInfo.ClientIpAddress}");
         }
 
         private async void OnBanRequested(DashboardCommandNotification obj)
@@ -186,7 +188,8 @@ namespace ImpostorHQ.Module.Banning
 
                 await obj.User.WriteConsole($"Banned {count} instances.", "ban system");
 
-                await this._logManager.LogInformation($"Ban Manager: blind banned {count} instances of {ipa} for {obj.User.Socket.ConnectionInfo.ClientIpAddress}");
+                await _logManager.LogInformation(
+                    $"Ban Manager: blind banned {count} instances of {ipa} for {obj.User.Socket.ConnectionInfo.ClientIpAddress}");
             }
             catch (Exception e)
             {
@@ -201,7 +204,8 @@ namespace ImpostorHQ.Module.Banning
         {
             if (IsBanned(@event.Player.Client.Connection!.EndPoint.Address.ToString()))
             {
-                await this._logManager.LogInformation($"Ban Manager: {@event.Player.Client.Connection!.EndPoint.Address} tried to join but is banned.");
+                await _logManager.LogInformation(
+                    $"Ban Manager: {@event.Player.Client.Connection!.EndPoint.Address} tried to join but is banned.");
                 await @event.Player.BanAsync();
             }
         }

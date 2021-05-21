@@ -40,6 +40,7 @@ namespace ImpostorHQ.Core.Http
             return result;
         }
 
-        public (string mime, byte[] data) CreateHttpResponseBody() => ("text/csv", Encoding.UTF8.GetBytes(ComposeCsv()));
+        public (string mime, byte[] data) CreateHttpResponseBody() =>
+            ("text/csv", Encoding.UTF8.GetBytes(ComposeCsv()));
     }
 }

@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Text;
 using ImpostorHQ.Http.Handler;
@@ -11,16 +9,15 @@ namespace ImpostorHQ.Http
 {
     public class HttpServer
     {
-        private readonly HttpListener _listener;
-
-        private readonly ConcurrentDictionary<string, IRequestHandler> _handlers;
-
         private readonly byte[] _404Bytes;
 
-        public HttpServer(ushort port, IPAddress host, string notFound404Document )
+        private readonly ConcurrentDictionary<string, IRequestHandler> _handlers;
+        private readonly HttpListener _listener;
+
+        public HttpServer(ushort port, IPAddress host, string notFound404Document)
         {
-            this._listener = new HttpListener(new IPEndPoint(host, port), HandleRequest);
-            this._handlers = new ConcurrentDictionary<string, IRequestHandler>();
+            _listener = new HttpListener(new IPEndPoint(host, port), HandleRequest);
+            _handlers = new ConcurrentDictionary<string, IRequestHandler>();
 
             var notFound404Bytes = Encoding.UTF8.GetBytes(notFound404Document);
             using var ms = new MemoryStream();
@@ -32,7 +29,7 @@ namespace ImpostorHQ.Http
                 $"Server: ImpostorHQ\r\n\r\n");
             ms.Write(notFound404Bytes);
 
-            this._404Bytes = ms.ToArray();
+            _404Bytes = ms.ToArray();
         }
 
         public void Start()
@@ -47,7 +44,8 @@ namespace ImpostorHQ.Http
 
         public void AddHandler(IRequestHandler handler)
         {
-            if(!_handlers.TryAdd(handler.Path, handler)) throw new Exception("A handler with the same path already exists.");
+            if (!_handlers.TryAdd(handler.Path, handler))
+                throw new Exception("A handler with the same path already exists.");
         }
 
         public bool ContainsHandler(string prefix)

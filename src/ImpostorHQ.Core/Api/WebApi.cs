@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices.ComTypes;
-using System.Security.Authentication;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Timers;
@@ -13,70 +8,56 @@ using Fleck;
 using ImpostorHQ.Core.Api.Message;
 using ImpostorHQ.Core.Config;
 using ImpostorHQ.Core.Cryptography;
-using ImpostorHQ.Core.Cryptography.BlackTea;
 using ImpostorHQ.Core.Logs;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualBasic;
 
 namespace ImpostorHQ.Core.Api
 {
     public class WebApi
     {
+        private readonly CryptoManager _crypto;
         private readonly ILogger<WebApi> _logger;
 
+        private readonly LogManager _logManager;
+
         private readonly MessageFactory _messageFactory;
+
+        private readonly MetricsProvider _metricsProvider;
 
         private readonly string[] _passwords;
 
         private readonly WebSocketServer _server;
 
-        private readonly ConcurrentDictionary<IWebSocketConnection, WebApiUser> _users;
-
-        public ICollection<WebApiUser> Users => _users.Values;
+        private readonly ConcurrentDictionary<IWebSocketConnection, int> _timeouts;
 
         private readonly Timer _timer1S;
 
-        private readonly ConcurrentDictionary<IWebSocketConnection, int> _timeouts;
-
-        private readonly CryptoManager _crypto;
-
         private readonly WebApiUserFactory _userFactory;
 
-        private readonly MetricsProvider _metricsProvider;
+        private readonly ConcurrentDictionary<IWebSocketConnection, WebApiUser> _users;
 
-        private readonly LogManager _logManager;
-
-        public WebApi(ILogger<WebApi> logger, MessageFactory messageFactory, PrimaryConfig config, PasswordFile passwordProvider, CryptoManager crypto, WebApiUserFactory webApiUserFactory, MetricsProvider metricsProvider, LogManager logManager)
+        public WebApi(ILogger<WebApi> logger, MessageFactory messageFactory, PrimaryConfig config,
+            PasswordFile passwordProvider, CryptoManager crypto, WebApiUserFactory webApiUserFactory,
+            MetricsProvider metricsProvider, LogManager logManager)
         {
-            this._logger = logger;
-            this._messageFactory = messageFactory;
-            this._passwords = passwordProvider.Passwords;
-            this._crypto = crypto;
-            this._userFactory = webApiUserFactory;
-            this._metricsProvider = metricsProvider;
-            this._logManager = logManager;
+            _logger = logger;
+            _messageFactory = messageFactory;
+            _passwords = passwordProvider.Passwords;
+            _crypto = crypto;
+            _userFactory = webApiUserFactory;
+            _metricsProvider = metricsProvider;
+            _logManager = logManager;
 
-            this._users = new ConcurrentDictionary<IWebSocketConnection, WebApiUser>();
-            this._timeouts = new ConcurrentDictionary<IWebSocketConnection, int>();
+            _users = new ConcurrentDictionary<IWebSocketConnection, WebApiUser>();
+            _timeouts = new ConcurrentDictionary<IWebSocketConnection, int>();
 
-            if (!config.EnableSsl)
-            {
-                this._server = new WebSocketServer($"ws://{config.Host}:{config.ApiPort}");
-            }
-            else
-            {
-                this._server = new WebSocketServer($"wss://{config.Host}:{config.ApiPort}")
-                {
-                    Certificate = X509Certificate2.CreateFromPemFile(config.CertificatePublicPath,
-                        config.CertificatePrivatePath),
-                    EnabledSslProtocols = SslProtocols.Tls12
-                };
+            _server = new WebSocketServer($"ws://{config.Host}:{config.ApiPort}");
 
-            }
-            
-            this._timer1S = new Timer(1000){AutoReset = true};
-            this._timer1S.Elapsed += _timer1s_Elapsed;
+            _timer1S = new Timer(1000) {AutoReset = true};
+            _timer1S.Elapsed += _timer1s_Elapsed;
         }
+
+        public ICollection<WebApiUser> Users => _users.Values;
 
         private void _timer1s_Elapsed(object sender, object args)
         {
@@ -101,7 +82,7 @@ namespace ImpostorHQ.Core.Api
         public void Start()
         {
             _timer1S.Start();
-            this._server.Start(socket =>
+            _server.Start(socket =>
             {
                 //a client connects.
                 socket.OnOpen += () => OnOpen(socket);
@@ -112,7 +93,7 @@ namespace ImpostorHQ.Core.Api
         {
             await BroadcastAsync(_messageFactory.CreateKick("Impostor Shutting down.", "API"));
             _timer1S.Dispose();
-            this._server.Dispose();
+            _server.Dispose();
         }
 
         private void OnOpen(IWebSocketConnection socket)
@@ -126,10 +107,7 @@ namespace ImpostorHQ.Core.Api
                         var item = _userFactory.Create(socket, decryptResult.password);
                         _users.TryAdd(socket, item);
 
-                        socket.OnClose += () =>
-                        {
-                            _users.TryRemove(socket, out _);
-                        };
+                        socket.OnClose += () => { _users.TryRemove(socket, out _); };
 
                         item.OnDisconnected += RemoveUser;
 
@@ -163,7 +141,8 @@ namespace ImpostorHQ.Core.Api
                     }
                     catch
                     {
-                        _logger.LogWarning("ImpostorHQ Danger: user {Address} is sending malformed API messages.", socket.ConnectionInfo.ClientIpAddress);
+                        _logger.LogWarning("ImpostorHQ Danger: user {Address} is sending malformed API messages.",
+                            socket.ConnectionInfo.ClientIpAddress);
                         RemoveUser();
                         return;
                     }
@@ -172,12 +151,14 @@ namespace ImpostorHQ.Core.Api
 
                     if (!success)
                     {
-                        _logger.LogWarning("ImpostorHQ Danger: user {Address} tried to execute an invalid operation.", socket.ConnectionInfo.ClientIpAddress);
+                        _logger.LogWarning("ImpostorHQ Danger: user {Address} tried to execute an invalid operation.",
+                            socket.ConnectionInfo.ClientIpAddress);
                         await user.Write(_messageFactory.CreateKick("API Error.", "API Error"));
-                        
+
                         RemoveUser();
-                       
-                        await _logManager.LogError($"User {socket.ConnectionInfo.ClientIpAddress} created error on HandleMessage.", exception);
+
+                        await _logManager.LogError(
+                            $"User {socket.ConnectionInfo.ClientIpAddress} created error on HandleMessage.", exception);
                     }
                 }
             };

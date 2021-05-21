@@ -2,7 +2,6 @@
 using Impostor.Api.Plugins;
 using ImpostorHQ.Http;
 using ImpostorHQ.Http.Handler;
-using ImpostorHQ.Module.Banning;
 
 namespace ImpostorHQ.Module.HallOfShame
 {
@@ -13,7 +12,8 @@ namespace ImpostorHQ.Module.HallOfShame
     {
         public ImpostorPlugin(HtmlGenerator generator, HttpServer server)
         {
-            server.AddHandler(new DynamicHandler("/shame", () => ("text/html", Encoding.UTF8.GetBytes(generator.Generate()))));
+            server.AddHandler(new DynamicHandler("/shame",
+                () => ("text/html", Encoding.UTF8.GetBytes(generator.Generate()))));
         }
     }
 }

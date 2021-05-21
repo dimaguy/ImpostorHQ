@@ -2,8 +2,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,48 +9,65 @@ using System.Threading.Tasks;
 namespace ImpostorHQ.Module.Banning
 {
     /// <summary>
-    /// it's a stack
+    ///     it's a stack
     /// </summary>
     public class BanDatabase : IDisposable
     {
-        private readonly SemaphoreSlim _locks;
+        private const string Path = "ImpostorHQ.Bans.jsondb";
 
         private readonly ConcurrentDictionary<string, PlayerBan> _bans;
 
-        public IEnumerable<PlayerBan> Bans => _bans.Values;
+        private readonly FileStream _fs;
+        private readonly SemaphoreSlim _locks;
 
-        private FileStream _fs;
-
-        private StreamWriter _writer;
-
-        private const string Path = "ImpostorHQ.Bans.jsondb";
+        private readonly StreamWriter _writer;
 
         public BanDatabase()
         {
-            this._locks = new SemaphoreSlim(1, 1);
-            this._bans = new ConcurrentDictionary<string, PlayerBan>();
-            this._fs = new FileStream(Path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read, 4096, FileOptions.Asynchronous);
+            _locks = new SemaphoreSlim(1, 1);
+            _bans = new ConcurrentDictionary<string, PlayerBan>();
+            _fs = new FileStream(Path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read, 4096,
+                FileOptions.Asynchronous);
             if (_fs.Length != 0)
             {
-                _fs.Seek(0, SeekOrigin.Begin);
-                using var reader = new StreamReader(_fs);
-                while (_fs.Position != _fs.Length)
+                var options = new JsonSerializerOptions() {PropertyNameCaseInsensitive = true};
+                var reader = new StreamReader(_fs);
+                while (!reader.EndOfStream)
                 {
                     var line = reader.ReadLine();
-                    if(string.IsNullOrEmpty(line) || string.IsNullOrWhiteSpace(line)) continue;
-                    var ban = JsonSerializer.Deserialize<PlayerBan>(line);
-                    _bans.TryAdd(ban.IpAddress, ban);
+                    if (string.IsNullOrEmpty(line))
+                    {
+                        continue;
+                    }
+
+                    var record = JsonSerializer.Deserialize<PlayerBan>(line, options);
+                    if (record.IpAddress == null)
+                    {
+                        // weirdness
+                        continue;
+                    }
+
+                    _bans.TryAdd(record.IpAddress, record);
                 }
             }
 
-            this._writer = new StreamWriter(_fs);
+            _writer = new StreamWriter(_fs);
+        }
+
+        public IEnumerable<PlayerBan> Bans => _bans.Values;
+
+        public void Dispose()
+        {
+            _locks.Wait();
+            _writer.Dispose();
         }
 
         public async ValueTask Add(PlayerBan ban)
         {
+            _bans.TryAdd(ban.IpAddress, ban);
+
             await _locks.WaitAsync();
 
-            _bans.TryAdd(ban.IpAddress, ban);
             await _writer.WriteLineAsync(ban.Serialize());
             await _writer.FlushAsync();
 
@@ -61,17 +76,15 @@ namespace ImpostorHQ.Module.Banning
 
         public async ValueTask Remove(string address)
         {
-            await _locks.WaitAsync();
-
-            if (!_bans.ContainsKey(address))
+            if (!_bans.TryRemove(address, out _))
             {
                 return;
             }
 
-            _bans.Remove(address, out _);
+            await _locks.WaitAsync();
 
-            this._fs.SetLength(0);
-            await this._fs.FlushAsync();
+            _fs.SetLength(0);
+            await _fs.FlushAsync();
             foreach (var playerBan in _bans)
             {
                 await _writer.WriteLineAsync(playerBan.Value.Serialize());
@@ -95,12 +108,6 @@ namespace ImpostorHQ.Module.Banning
         public bool Contains(string address)
         {
             return _bans.ContainsKey(address);
-        }
-
-        public void Dispose()
-        {
-            _locks.Wait();
-            _writer.Dispose();
         }
     }
 }

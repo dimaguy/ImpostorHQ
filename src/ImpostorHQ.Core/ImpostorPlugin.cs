@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using Impostor.Api.Plugins;
 using ImpostorHQ.Core.Api;
 using ImpostorHQ.Core.Commands.Handler;
@@ -15,18 +11,18 @@ namespace ImpostorHQ.Core
     [ImpostorPlugin("ihq.core")]
     public class ImpostorPlugin : PluginBase
     {
-        private readonly HttpServer _httpServer;
-
         private readonly WebApi _api;
+        private readonly HttpServer _httpServer;
 
         private readonly LogManager _logs;
 
-        public ImpostorPlugin(HttpRootConfigurator httpConfigurator, HttpServer server, WebApi api, LogManager logManager, PlayerCommandHandler playerCommandHandler)
+        public ImpostorPlugin(HttpRootConfigurator httpConfigurator, HttpServer server, WebApi api,
+            LogManager logManager, PlayerCommandHandler playerCommandHandler)
         {
             httpConfigurator.Configure();
-            this._httpServer = server;
-            this._api = api;
-            this._logs = logManager;
+            _httpServer = server;
+            _api = api;
+            _logs = logManager;
         }
 
         public override async ValueTask EnableAsync()

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,16 +7,17 @@ namespace ImpostorHQ.Http.Handler
 {
     public class DynamicHandler : IRequestHandler
     {
-        public string Path { get; }
-
         private readonly Func<(string mime, byte[] data)> _gen;
 
         public DynamicHandler(string endpoint, Func<(string mine, byte[] data)> generator)
         {
-            if (!endpoint.StartsWith("/")) throw new ArgumentException("Endpoint must start with a forward slash (\"/\").");
-            this.Path = endpoint;
-            this._gen = generator;
+            if (!endpoint.StartsWith("/"))
+                throw new ArgumentException("Endpoint must start with a forward slash (\"/\").");
+            Path = endpoint;
+            _gen = generator;
         }
+
+        public string Path { get; }
 
         public async ValueTask HandleRequest(HttpContext context)
         {

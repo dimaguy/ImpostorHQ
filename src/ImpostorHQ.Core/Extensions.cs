@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Fleck;
@@ -14,7 +12,6 @@ using ImpostorHQ.Core.Cryptography.BlackTea;
 using ImpostorHQ.Core.Logs;
 using ImpostorHQ.Core.Logs.Formatters;
 using ImpostorHQ.Core.Util;
-using ImpostorHQ.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.ObjectPool;
 
@@ -62,7 +59,8 @@ namespace ImpostorHQ.Core
 
         public static IServiceCollection AddStringBuilderPooling(this IServiceCollection services)
         {
-            return services.AddSingleton<ObjectPool<StringBuilder>>(new DefaultObjectPool<StringBuilder>(new StringBuilderPooledObjectPolicy()));
+            return services.AddSingleton<ObjectPool<StringBuilder>>(
+                new DefaultObjectPool<StringBuilder>(new StringBuilderPooledObjectPolicy()));
         }
 
         public static IServiceCollection AddMetrics(this IServiceCollection services)
@@ -70,10 +68,13 @@ namespace ImpostorHQ.Core
             return services.AddSingleton<MetricsProvider>();
         }
 
-        public static ValueTask LogInformation(this LogManager manager, string message) => manager.Enqueue(new Log(LogLevel.Info, message));
+        public static ValueTask LogInformation(this LogManager manager, string message) =>
+            manager.Enqueue(new Log(LogLevel.Info, message));
 
-        public static ValueTask LogWarning(this LogManager manager, string message) => manager.Enqueue(new Log(LogLevel.Warn, message));
+        public static ValueTask LogWarning(this LogManager manager, string message) =>
+            manager.Enqueue(new Log(LogLevel.Warn, message));
 
-        public static ValueTask LogError(this LogManager manager, string message, Exception ex = null) => manager.Enqueue(new Log(LogLevel.Error, message, ex));
+        public static ValueTask LogError(this LogManager manager, string message, Exception ex = null) =>
+            manager.Enqueue(new Log(LogLevel.Error, message, ex));
     }
 }

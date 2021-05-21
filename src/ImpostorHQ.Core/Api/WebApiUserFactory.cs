@@ -12,13 +12,15 @@ namespace ImpostorHQ.Core.Api
 
         private readonly MessageFactory _messageFactory;
 
-        public WebApiUserFactory(WebApiMessageHandler handler, BlackTeaCryptoServiceProvider csp, MessageFactory messageFactory)
+        public WebApiUserFactory(WebApiMessageHandler handler, BlackTeaCryptoServiceProvider csp,
+            MessageFactory messageFactory)
         {
             _handler = handler;
             _csp = csp;
             _messageFactory = messageFactory;
         }
 
-        public WebApiUser Create(IWebSocketConnection connection, string password) => new(connection, password, _csp, _handler, _messageFactory);
+        public WebApiUser Create(IWebSocketConnection connection, string password) =>
+            new(connection, password, _csp, _handler, _messageFactory);
     }
 }

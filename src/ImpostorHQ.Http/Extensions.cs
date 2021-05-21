@@ -1,6 +1,5 @@
 ﻿#nullable enable
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -12,7 +11,8 @@ namespace ImpostorHQ.Http
 {
     public static class Extensions
     {
-        public static async ValueTask<string?> ReadLineSized(this Stream stream, int maxLength, CancellationToken ct = default)
+        public static async ValueTask<string?> ReadLineSized(this Stream stream, int maxLength,
+            CancellationToken ct = default)
         {
             await using var ms = new MemoryStream();
             var total = 0;
@@ -22,7 +22,7 @@ namespace ImpostorHQ.Http
             {
                 int read;
                 try
-                { 
+                {
                     read = await stream.ReadAsync(buffer, ct);
                 }
                 catch (IOException)
@@ -52,7 +52,8 @@ namespace ImpostorHQ.Http
             stream.Write(Encoding.UTF8.GetBytes(text));
         }
 
-        public static IServiceCollection AddHttpServer(this IServiceCollection collection, string host, ushort port, string notFound404Html)
+        public static IServiceCollection AddHttpServer(this IServiceCollection collection, string host, ushort port,
+            string notFound404Html)
         {
             var server = new HttpServer(port, IPAddress.Parse(host), notFound404Html);
             collection.AddSingleton(server);

@@ -40,10 +40,11 @@ namespace ImpostorHQ.Core.Commands.Handler
             _passwords = passwordFile.Passwords;
 
             _parser.Register(new DashboardCommand(HelpRequested, "/help", "shows information about the commands", 0));
-            _parser.Register(new DashboardCommand(FetchLogRequested, "/fetch-log", 
+            _parser.Register(new DashboardCommand(FetchLogRequested, "/fetch-log",
                 "fetches log with the name obtained from /logs. Usage: /fetch-log [name]", 1));
             _parser.Register(new DashboardCommand(ListLogsRequested, "/logs", "lists logs", 0));
-            _parser.Register(new DashboardCommand(LogSizeRequested, "/logsize", "shows the space used by the logs.", 0));
+            _parser.Register(new DashboardCommand(LogSizeRequested, "/logsize", "shows the space used by the logs.",
+                0));
         }
 
         private async void LogSizeRequested(DashboardCommandNotification obj)

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Text;
 using ImpostorHQ.Module.Banning;
 using ImpostorHQ.Module.HallOfShame.Properties;
 using Microsoft.Extensions.ObjectPool;
@@ -17,8 +13,8 @@ namespace ImpostorHQ.Module.HallOfShame
 
         public HtmlGenerator(BanDatabase banDatabase, ObjectPool<StringBuilder> sbPool)
         {
-            this._database = banDatabase;
-            this._sbPool = sbPool;
+            _database = banDatabase;
+            _sbPool = sbPool;
         }
 
         public string Generate()
@@ -32,6 +28,7 @@ namespace ImpostorHQ.Module.HallOfShame
                 sb.Append(databaseBan.PlayerName);
                 sb.Append("</td>\r\n");
             }
+
             sb.AppendLine(Resources.endHtml);
 
             var result = sb.ToString();

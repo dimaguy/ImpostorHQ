@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace ImpostorHQ.Http
+﻿namespace ImpostorHQ.Http
 {
     public readonly struct HttpRequest
     {
@@ -12,13 +8,14 @@ namespace ImpostorHQ.Http
 
         public HttpRequest(string path, HttpRequestMethod method)
         {
-            this.Path = path;
-            this.Method = method;
+            Path = path;
+            Method = method;
         }
     }
 
     public enum HttpRequestMethod
     {
-        GET, HEAD
+        GET,
+        HEAD
     }
 }

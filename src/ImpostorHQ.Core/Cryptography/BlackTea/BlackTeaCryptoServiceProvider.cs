@@ -87,7 +87,7 @@ namespace ImpostorHQ.Core.Cryptography.BlackTea
             _fastBitConverter.SetUInt32Unsafe(byteBuffer, blockBuffer[0], 0);
 
             var remaining = Math.Min(4, destination.Length - index);
-            if(remaining < 1) return;
+            if (remaining < 1) return;
             byteBuffer[..remaining].CopyTo(destination.Slice(index));
 
 

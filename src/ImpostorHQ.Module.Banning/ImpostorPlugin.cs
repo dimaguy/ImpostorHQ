@@ -1,5 +1,4 @@
-﻿using System;
-using Impostor.Api.Plugins;
+﻿using Impostor.Api.Plugins;
 
 namespace ImpostorHQ.Module.Banning
 {
@@ -8,6 +7,8 @@ namespace ImpostorHQ.Module.Banning
     [ImpostorDependency("ihq.core", DependencyType.HardDependency)]
     public class ImpostorPlugin : PluginBase
     {
-        public ImpostorPlugin(BanManager manager) { }
+        public ImpostorPlugin(BanManager manager)
+        {
+        }
     }
 }
