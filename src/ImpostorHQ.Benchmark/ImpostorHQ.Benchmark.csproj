@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.12.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ImpostorHQ.Core\ImpostorHQ.Core.csproj" />
+    <ProjectReference Include="..\ImpostorHQ.Module.Banning\ImpostorHQ.Module.Banning.csproj" />
+  </ItemGroup>
+
+</Project>
