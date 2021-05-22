@@ -8,13 +8,15 @@ namespace ImpostorHQ.Tests.Mocks
         {
             Prefix = prefix;
             Information = information;
-            Tokens = tokens;
+            MaxTokens = tokens;
+            MinTokens = tokens;
         }
 
         public string Prefix { get; }
 
         public string Information { get; }
+        public int MinTokens { get; }
 
-        public int Tokens { get; }
+        public int MaxTokens { get; }
     }
 }

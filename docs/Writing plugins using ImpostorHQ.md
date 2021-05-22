@@ -14,3 +14,5 @@ This will make your plugin depend on ImpostorHQ.
 
 Now you can access the command handlers to create player/dashboard commands, assign HTTP endpoints for any API that you might want.
 
+There is a test project, `ImpostorHQ.Module.Test`, so you can see how to use the command registers.
+

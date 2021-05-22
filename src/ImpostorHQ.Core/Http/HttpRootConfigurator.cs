@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Linq;
+using System.Text;
 using ImpostorHQ.Core.Config;
 using ImpostorHQ.Core.Properties;
 using ImpostorHQ.Http;
@@ -8,20 +9,23 @@ namespace ImpostorHQ.Core.Http
 {
     public class HttpRootConfigurator
     {
-        private readonly PrimaryConfig _config;
+        private readonly ImpostorHqConfig _config;
 
         private readonly string[] _passwords;
 
-        private readonly HttpPlayerListProvider _playerList;
+        private readonly IHttpPlayerListProvider _playerList;
         private readonly HttpServer _server;
 
-        public HttpRootConfigurator(HttpServer server, PrimaryConfig config, PasswordFile passwordFile,
-            HttpPlayerListProvider playerListProvider)
+        public HttpRootConfigurator(
+            HttpServer server, 
+            ImpostorHqConfig config, 
+            IPasswordFile passwordFile,
+            IHttpPlayerListProvider playerListProvider)
         {
             _server = server;
             _config = config;
             _playerList = playerListProvider;
-            _passwords = passwordFile.Passwords;
+            _passwords = passwordFile.Passwords.Select(p=>p.Key).ToArray();
         }
 
         public void Configure()
@@ -37,7 +41,7 @@ namespace ImpostorHQ.Core.Http
             _server.AddHandler(new StaticHandler("/css/align.css", Encoding.UTF8.GetBytes(Resources.align),
                 "text/css"));
 
-            _server.AddHandler(new StaticHandler("/js/main.js", Encoding.UTF8.GetBytes(Resources.main),
+            _server.AddHandler(new StaticHandler("/js/main.js", Encoding.UTF8.GetBytes(Resources.main.Replace(" + \":22023\";", $" + \":{_config.ApiPort}\";")),
                 "text/javascript"));
             _server.AddHandler(new StaticHandler("/js/blackTea.js", Encoding.UTF8.GetBytes(Resources.blackTea),
                 "text/javascript"));

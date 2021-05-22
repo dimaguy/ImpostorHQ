@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net5.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="5.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\src\ImpostorHQ.Core\ImpostorHQ.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Impostor.Api">
+      <HintPath>..\..\..\Impostor\src\Impostor.Api\bin\Release\netstandard2.1\Impostor.Api.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

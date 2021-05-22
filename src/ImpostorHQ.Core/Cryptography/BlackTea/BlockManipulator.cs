@@ -1,12 +1,14 @@
 ﻿using System;
+using System.Runtime.CompilerServices;
 
 namespace ImpostorHQ.Core.Cryptography.BlackTea
 {
-    public class BlockManipulator
+    public class BlockManipulator : IBlockManipulator
     {
         private const ushort Rounds = 32;
         private const uint Delta = 0x9E3779B9;
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void EncryptBlock(Span<uint> block, ReadOnlySpan<uint> key)
         {
             var v0 = block[0];
@@ -23,6 +25,7 @@ namespace ImpostorHQ.Core.Cryptography.BlackTea
             block[1] = v1;
         }
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void DecryptBlock(Span<uint> block, ReadOnlySpan<uint> key)
         {
             var v0 = block[0];
@@ -43,5 +46,14 @@ namespace ImpostorHQ.Core.Cryptography.BlackTea
         {
             return (length + 7) / 8 * 8;
         }
+    }
+
+    public interface IBlockManipulator
+    {
+        void EncryptBlock(Span<uint> block, ReadOnlySpan<uint> key);
+
+        void DecryptBlock(Span<uint> block, ReadOnlySpan<uint> key);
+
+        int NextBlockMultiple(int len);
     }
 }

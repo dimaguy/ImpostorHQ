@@ -3,13 +3,13 @@ using System.Security.Cryptography;
 
 namespace ImpostorHQ.Core.Cryptography.BlackTea
 {
-    public class KeyGenerator
+    public class KeyGenerator : IKeyGenerator
     {
         private static readonly MD5 Md5 = new MD5CryptoServiceProvider();
 
-        private readonly FastBitConverter _bitConverter;
+        private readonly IBitConverter _bitConverter;
 
-        public KeyGenerator(FastBitConverter bitConverter)
+        public KeyGenerator(IBitConverter bitConverter)
         {
             _bitConverter = bitConverter;
         }
@@ -24,5 +24,10 @@ namespace ImpostorHQ.Core.Cryptography.BlackTea
             key[3] = (uint) Math.Abs(_bitConverter.GetInt32UnsafeFastest(hash, 12));
             return key;
         }
+    }
+
+    public interface IKeyGenerator
+    {
+        uint[] CreateKey(byte[] password);
     }
 }

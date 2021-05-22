@@ -1,8 +1,8 @@
 ﻿namespace ImpostorHQ.Core.Config
 {
-    public class PrimaryConfig
+    public class ImpostorHqConfig
     {
-        public const string Section = "IHQHttp";
+        public const string Section = "IHQ";
 
         public string Host { get; set; } = "0.0.0.0";
 

@@ -9,11 +9,11 @@ namespace ImpostorHQ.Core.Api
     /// <summary>
     ///     Handles messages from the client.
     /// </summary>
-    public class WebApiMessageHandler
+    public class WebApiMessageHandler : IWebApiMessageHandler
     {
-        private readonly DashboardCommandHandler _commandHandler;
+        private readonly IDashboardCommandHandler _commandHandler;
 
-        public WebApiMessageHandler(DashboardCommandHandler commandHandler)
+        public WebApiMessageHandler(IDashboardCommandHandler commandHandler)
         {
             _commandHandler = commandHandler;
         }
@@ -31,5 +31,10 @@ namespace ImpostorHQ.Core.Api
 
             return (true, null);
         }
+    }
+
+    public interface IWebApiMessageHandler
+    {
+        ValueTask<(bool, Exception?)> HandleConsoleCommand(ApiMessage message, WebApiUser user);
     }
 }

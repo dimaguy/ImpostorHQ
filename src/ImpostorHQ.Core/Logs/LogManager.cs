@@ -14,7 +14,7 @@ namespace ImpostorHQ.Core.Logs
     /// <summary>
     ///     Log to file.
     /// </summary>
-    public class LogManager : IDisposable
+    public class LogManager : IDisposable, ILogManager
     {
         private const string Dir = "ImpostorHQ.Logs";
 
@@ -86,13 +86,6 @@ namespace ImpostorHQ.Core.Logs
             return $"{Dir}/{name}.csv";
         }
 
-        public FileStream Open(string logFile)
-        {
-            var path = $"{Dir}/{logFile}.csv";
-            var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-            return fs;
-        }
-
         public long GetLogBytes()
         {
             long size = 0;
@@ -103,5 +96,16 @@ namespace ImpostorHQ.Core.Logs
 
             return size;
         }
+    }
+
+    public interface ILogManager
+    {
+        ValueTask Enqueue(Log log);
+
+        IEnumerable<string> EnumerateLogFiles();
+
+        string GetFullPath(string log);
+
+        long GetLogBytes();
     }
 }

@@ -4,7 +4,7 @@ using Microsoft.Extensions.ObjectPool;
 
 namespace ImpostorHQ.Core.Commands
 {
-    public class CommandHelpProvider
+    public class CommandHelpProvider : ICommandHelpProvider
     {
         private readonly ObjectPool<StringBuilder> _sbPool;
 
@@ -16,11 +16,11 @@ namespace ImpostorHQ.Core.Commands
         public string CreateHelp(IEnumerable<ICommand> commands)
         {
             var sb = _sbPool.Get();
-
+            sb.Append("\nUse /helpfor [command] to see more information. Commands:");
             sb.Append("\r\n");
             foreach (var command in commands)
             {
-                sb.Append(command.Prefix).Append(" (").Append(command.Information).Append(");").Append('\n');
+                sb.Append("  ").Append(command.Prefix).Append("\n");
             }
 
             var result = sb.ToString();
@@ -29,5 +29,10 @@ namespace ImpostorHQ.Core.Commands
 
             return result;
         }
+    }
+
+    public interface ICommandHelpProvider
+    {
+        string CreateHelp(IEnumerable<ICommand> commands);
     }
 }

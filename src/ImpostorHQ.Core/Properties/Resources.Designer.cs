@@ -72,17 +72,17 @@ namespace ImpostorHQ.Core.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to .header-img {
-        ///  max-width: 25%;
-        ///  height: 25%;
-        ///  background: url(&apos;hq_header.png&apos;);
-        ///  background-size: contain;
-        ///  background-repeat: no-repeat;
+        ///    background: url(&apos;hq_header.png&apos;);
+        ///    background-repeat: no-repeat;
+        ///    background-size: contain;
+        ///    height: 25%;
+        ///    max-width: 25%;
         ///}
+        ///
         ///.header {
-        ///  text-align: left;
-        ///  color: white;
-        ///}
-        ///.
+        ///    color: white;
+        ///    text-align: left;
+        ///}.
         /// </summary>
         internal static string align {
             get {
@@ -181,27 +181,27 @@ namespace ImpostorHQ.Core.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to &quot;use strict&quot;
+        ///   Looks up a localized string similar to &quot;use strict&quot;;
         ///
         /////curtesy of anti :) 
         ///
         ///
         /////#region Constant
-        ///const delta = 0x9E3779B9;
-        ///const rounds = 32;
+        ///var delta = 0x9E3779B9;
+        ///var rounds = 32;
         /////#endregion
         ///
         /////#region Final Functions
-        ///function encrypt(dataStr, keyString){
+        ///function encrypt(dataStr, keyString) {
         ///    var data = getBytes(dataStr);
         ///    var keyBuffer = getKey(keyString);
         ///    var blockBuffer = new Uint32Array(2);
-        ///    var blockLen = nextMultiple(data.length + 4);
-        ///    
+        ///    var blockLen = nextMultiple(data.length + 8);
+        ///
         ///    var encryptionBuffer = new Uint8Array(blockLen);
         ///    var cipher = new Array();
-        ///    var lenBuffer = decimalToBytes(data.length);
-        ///    encryptionBuffer = arrayCo [rest of string was truncated]&quot;;.
+        ///    var lenBuffer = longToBytes(data.length);
+        ///    encryptionBuffer = arrayCopyTo(lenB [rest of string was truncated]&quot;;.
         /// </summary>
         internal static string blackTea {
             get {

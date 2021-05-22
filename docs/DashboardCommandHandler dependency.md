@@ -1,4 +1,4 @@
-# DashboardCommandHandler dependency.
+# IDashboardCommandHandler dependency.
 
 This class allows the registration of `DashboardCommand` objects via the `AddCommand` method. 
 

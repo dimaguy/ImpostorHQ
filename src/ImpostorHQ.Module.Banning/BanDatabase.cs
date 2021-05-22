@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -56,15 +57,12 @@ namespace ImpostorHQ.Module.Banning
 
         public IEnumerable<PlayerBan> Bans => _bans.Values;
 
-        public void Dispose()
+        public async ValueTask<bool> Add(PlayerBan ban)
         {
-            _locks.Wait();
-            _writer.Dispose();
-        }
-
-        public async ValueTask Add(PlayerBan ban)
-        {
-            _bans.TryAdd(ban.IpAddress, ban);
+            if (!_bans.TryAdd(ban.IpAddress, ban))
+            {
+                return false;
+            }
 
             await _locks.WaitAsync();
 
@@ -72,13 +70,15 @@ namespace ImpostorHQ.Module.Banning
             await _writer.FlushAsync();
 
             _locks.Release();
+
+            return true;
         }
 
-        public async ValueTask Remove(string address)
+        public async ValueTask<bool> Remove(string address)
         {
             if (!_bans.TryRemove(address, out _))
             {
-                return;
+                return false;
             }
 
             await _locks.WaitAsync();
@@ -92,6 +92,8 @@ namespace ImpostorHQ.Module.Banning
             }
 
             _locks.Release();
+
+            return true;
         }
 
         public async ValueTask Clear()
@@ -105,9 +107,35 @@ namespace ImpostorHQ.Module.Banning
             _locks.Release();
         }
 
-        public bool Contains(string address)
+        public bool ContainsFast(string address)
         {
             return _bans.ContainsKey(address);
+        }
+
+        public bool Contains(string playerName)
+        {
+            return _bans.Any(x => x.Value.PlayerNames.Contains(playerName));
+        }
+
+        public PlayerBan? GetFast(string address)
+        {
+            if (_bans.TryGetValue(address, out var value))
+            {
+                return value;
+            }
+
+            return null;
+        }
+
+        public PlayerBan? Get(string playerName)
+        {
+            return _bans.FirstOrDefault(x => x.Value.PlayerNames.Contains(playerName)).Value;
+        }
+
+        public void Dispose()
+        {
+            _locks.Wait();
+            _writer.Dispose();
         }
     }
 }

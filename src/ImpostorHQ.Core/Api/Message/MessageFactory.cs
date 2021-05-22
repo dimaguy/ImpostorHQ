@@ -6,13 +6,13 @@ namespace ImpostorHQ.Core.Api.Message
     /// <summary>
     ///     Produces unencrypted messages.
     /// </summary>
-    public class MessageFactory
+    public class MessageFactory : IMessageFactory
     {
-        private readonly UnixDateProvider _dateProvider;
+        private readonly IUnixDateProvider _dateProvider;
 
         private readonly DateTime _startTime = DateTime.Now;
 
-        public MessageFactory(UnixDateProvider dateProvider)
+        public MessageFactory(IUnixDateProvider dateProvider)
         {
             _dateProvider = dateProvider;
         }
@@ -94,5 +94,20 @@ namespace ImpostorHQ.Core.Api.Message
 
             return message.Serialize();
         }
+    }
+
+    public interface IMessageFactory
+    {
+        string CreateLoginApiAccepted();
+
+        string CreateLoginApiRejected();
+
+        string CreateConsoleLog(string text, string source);
+
+        string CreateHeartBeat(int games, int players, int cpu, int memory);
+
+        string CreateFetchLog(string name, bool success);
+
+        string CreateKick(string reason, string sender);
     }
 }

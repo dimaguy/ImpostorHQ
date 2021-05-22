@@ -5,7 +5,7 @@ using Microsoft.Extensions.ObjectPool;
 
 namespace ImpostorHQ.Core.Http
 {
-    public class HttpPlayerListProvider
+    public class HttpPlayerListProvider : IHttpPlayerListProvider
     {
         private readonly IGameManager _gameManager;
 
@@ -42,5 +42,12 @@ namespace ImpostorHQ.Core.Http
 
         public (string mime, byte[] data) CreateHttpResponseBody() =>
             ("text/csv", Encoding.UTF8.GetBytes(ComposeCsv()));
+    }
+
+    public interface IHttpPlayerListProvider
+    {
+        string ComposeCsv();
+
+        (string mime, byte[] data) CreateHttpResponseBody();
     }
 }

@@ -8,7 +8,7 @@ using Impostor.Api.Net.Manager;
 
 namespace ImpostorHQ.Core.Api
 {
-    public class MetricsProvider : IDisposable
+    public class MetricsProvider : IDisposable, IMetricsProvider
     {
         private readonly IClientManager _clientManager;
 
@@ -67,5 +67,16 @@ namespace ImpostorHQ.Core.Api
                 _proc.Refresh();
             }
         }
+    }
+
+    public interface IMetricsProvider
+    {
+        long MemoryUsageBytes { get; }
+
+        int CpuUsagePercent { get; }
+
+        int PlayerCount { get; }
+
+        int GameCount { get; }
     }
 }

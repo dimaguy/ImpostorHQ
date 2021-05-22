@@ -1,6 +1,7 @@
 ﻿using System.IO;
 using Impostor.Api.Plugins;
 using ImpostorHQ.Core.Config;
+using ImpostorHQ.Core.Extensions;
 using ImpostorHQ.Core.Http;
 using ImpostorHQ.Core.Properties;
 using ImpostorHQ.Http;
@@ -21,12 +22,12 @@ namespace ImpostorHQ.Core
             var configuration = CreateConfigurator();
 
             var cfg = configuration
-                .GetSection(PrimaryConfig.Section)
-                .Get<PrimaryConfig>() ?? new PrimaryConfig();
+                .GetSection(ImpostorHqConfig.Section)
+                .Get<ImpostorHqConfig>() ?? new ImpostorHqConfig();
 
             services.AddSingleton(cfg);
 
-            services.AddSingleton<HttpPlayerListProvider>();
+            services.AddSingleton<IHttpPlayerListProvider, HttpPlayerListProvider>();
             services.AddHttpServer(cfg.Host, cfg.HttpPort, Resources.html404);
             services.AddSingleton<HttpRootConfigurator>();
             services.AddMetrics();

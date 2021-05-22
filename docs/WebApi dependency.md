@@ -1,4 +1,4 @@
-# WebApi dependency.
+# IWebApi dependency.
 
 This class exports a thread-safe collection of the actual authenticated users. It is obtained from the underlying ConcurrentDictionary. Access it by the `Users` property.
 

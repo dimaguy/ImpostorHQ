@@ -8,19 +8,22 @@ namespace ImpostorHQ.Core.Commands.Handler
         private readonly Action<DashboardCommandNotification> _invoker;
 
         public DashboardCommand(Action<DashboardCommandNotification> invoker, string prefix, string information,
-            int tokens)
+            int maxTokens, int minTokens)
         {
             _invoker = invoker;
             Prefix = prefix;
             Information = information;
-            Tokens = tokens;
+            MaxTokens = maxTokens;
+            MinTokens = minTokens;
         }
 
         public string Prefix { get; }
 
         public string Information { get; }
 
-        public int Tokens { get; }
+        public int MinTokens { get; }
+
+        public int MaxTokens { get; }
 
         public void Call(WebApiUser user, string[] tokens)
         {

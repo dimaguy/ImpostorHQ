@@ -6,6 +6,8 @@
 
         string Information { get; }
 
-        int Tokens { get; }
+        int MinTokens { get; }
+
+        int MaxTokens { get; }
     }
 }

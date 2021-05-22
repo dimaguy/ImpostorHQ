@@ -5,22 +5,22 @@ using Impostor.Api.Events.Player;
 
 namespace ImpostorHQ.Core.Commands.Handler
 {
-    public class PlayerCommandHandler : IEventListener
+    public class PlayerCommandHandler : IEventListener, IPlayerCommandHandler
     {
-        private readonly CommandHelpProvider _helpProvider;
-        private readonly CommandParser<PlayerCommand> _parser;
+        private readonly ICommandHelpProvider _helpProvider;
+        private readonly ICommandParser<PlayerCommand> _parser;
 
-        public PlayerCommandHandler(CommandParser<PlayerCommand> parser, IEventManager eventManager,
-            CommandHelpProvider helpProvider)
+        public PlayerCommandHandler(ICommandParser<PlayerCommand> parser, IEventManager eventManager,
+            ICommandHelpProvider helpProvider)
         {
             _parser = parser;
             _helpProvider = helpProvider;
 
             eventManager.RegisterListener(this);
 
-            AddCommand(new PlayerCommand(ListCommandsRequested, "/commands", "Shows all commands.", 0));
+            AddCommand(new PlayerCommand(ListCommandsRequested, "/commands", "Shows all commands.", 0, 0));
             AddCommand(new PlayerCommand(InformationCommandRequested, "/help",
-                "Shows help about the specified command. Use: /help [command]", 1));
+                "Shows help about the specified command. Use: /help [command]", 1, 0));
         }
 
         private async void InformationCommandRequested(PlayerCommandNotification obj)
@@ -77,5 +77,10 @@ namespace ImpostorHQ.Core.Commands.Handler
 
             parseResult.Command!.Call(@event.ClientPlayer, parseResult.Tokens);
         }
+    }
+
+    public interface IPlayerCommandHandler
+    {
+        void AddCommand(PlayerCommand command);
     }
 }

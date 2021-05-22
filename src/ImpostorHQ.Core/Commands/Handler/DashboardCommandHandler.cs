@@ -12,14 +12,14 @@ using Microsoft.Extensions.ObjectPool;
 
 namespace ImpostorHQ.Core.Commands.Handler
 {
-    public class DashboardCommandHandler
+    public class DashboardCommandHandler : IDashboardCommandHandler
     {
-        private readonly CommandHelpProvider _helpProvider;
+        private readonly ICommandHelpProvider _helpProvider;
 
-        private readonly LogManager _logManager;
+        private readonly ILogManager _logManager;
 
-        private readonly MessageFactory _messageFactory;
-        private readonly CommandParser<DashboardCommand> _parser;
+        private readonly IMessageFactory _messageFactory;
+        private readonly ICommandParser<DashboardCommand> _parser;
 
         private readonly string[] _passwords;
 
@@ -27,9 +27,9 @@ namespace ImpostorHQ.Core.Commands.Handler
 
         private readonly HttpServer _server;
 
-        public DashboardCommandHandler(CommandParser<DashboardCommand> parser, MessageFactory messageFactory,
-            CommandHelpProvider helpProvider, LogManager logManager, ObjectPool<StringBuilder> sbPool,
-            HttpServer server, PasswordFile passwordFile)
+        public DashboardCommandHandler(ICommandParser<DashboardCommand> parser, IMessageFactory messageFactory,
+            ICommandHelpProvider helpProvider, ILogManager logManager, ObjectPool<StringBuilder> sbPool,
+            HttpServer server, IPasswordFile passwordFile)
         {
             _parser = parser;
             _messageFactory = messageFactory;
@@ -37,14 +37,13 @@ namespace ImpostorHQ.Core.Commands.Handler
             _logManager = logManager;
             _sbPool = sbPool;
             _server = server;
-            _passwords = passwordFile.Passwords;
+            _passwords = passwordFile.Passwords.Select(p=>p.Key).ToArray();
 
-            _parser.Register(new DashboardCommand(HelpRequested, "/help", "shows information about the commands", 0));
+            _parser.Register(new DashboardCommand(HelpRequested, "/help", "lists commands. Usage: /help to show commands, /help [command].", 1, 0));
             _parser.Register(new DashboardCommand(FetchLogRequested, "/fetch-log",
-                "fetches log with the name obtained from /logs. Usage: /fetch-log [name]", 1));
-            _parser.Register(new DashboardCommand(ListLogsRequested, "/logs", "lists logs", 0));
-            _parser.Register(new DashboardCommand(LogSizeRequested, "/logsize", "shows the space used by the logs.",
-                0));
+                "fetches log with the name obtained from /logs. Usage: /fetch-log [name]", 1, 1));
+            _parser.Register(new DashboardCommand(ListLogsRequested, "/logs", "lists logs", 0, 0));
+            _parser.Register(new DashboardCommand(LogSizeRequested, "/logsize", "shows the space used by the logs", 0, 0));
         }
 
         private async void LogSizeRequested(DashboardCommandNotification obj)
@@ -54,8 +53,24 @@ namespace ImpostorHQ.Core.Commands.Handler
 
         private async void HelpRequested(DashboardCommandNotification obj)
         {
-            await obj.User.Write(
-                _messageFactory.CreateConsoleLog(_helpProvider.CreateHelp(_parser.Commands), "handler"));
+            if (obj.Tokens == null)
+            {
+                await obj.User.Write(
+                    _messageFactory.CreateConsoleLog(_helpProvider.CreateHelp(_parser.Commands), "handler"));
+                return;
+            }
+            
+            var record = _parser.Commands.FirstOrDefault(c => c.Prefix.Equals(obj.Tokens[0]));
+            if (record == null)
+            {
+                await obj.User.WriteConsole("No such command exists.", "handler");
+            }
+            else
+            {
+                await obj.User.WriteConsole(
+                    $"Prefix: \"{record.Prefix}\" arguments: {record.MaxTokens} info: \"{record.Information}\"",
+                    "handler");
+            }
         }
 
         private async void FetchLogRequested(DashboardCommandNotification obj)
@@ -126,5 +141,12 @@ namespace ImpostorHQ.Core.Commands.Handler
 
             parseResult.Command!.Call(user, parseResult.Tokens);
         }
+    }
+
+    public interface IDashboardCommandHandler
+    {
+        void AddCommand(DashboardCommand command);
+
+        ValueTask Process(string data, WebApiUser user);
     }
 }

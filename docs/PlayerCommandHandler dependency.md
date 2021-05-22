@@ -1,4 +1,4 @@
-# PlayerCommandHandler dependency.
+# IPlayerCommandHandler dependency.
 
 This class allows the registration of `PlayerCommand` objects via the `AddCommand` method. 
 

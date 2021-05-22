@@ -11,14 +11,17 @@ namespace ImpostorHQ.Module.Banning
 
         public string[] Witnesses { get; set; }
 
-        public string PlayerName { get; set; }
+        public string[] PlayerNames { get; set; }
 
-        public PlayerBan(string ipAddress, string[] witnesses, DateTime time, string playerName)
+        public string Reason { get; set; }
+
+        public PlayerBan(string ipAddress, string[] witnesses, DateTime time, string[] playerNames, string reason)
         {
             IpAddress = ipAddress;
             Witnesses = witnesses;
             Time = time;
-            PlayerName = playerName;
+            PlayerNames = playerNames;
+            this.Reason = reason;
         }
 
         public string Serialize()

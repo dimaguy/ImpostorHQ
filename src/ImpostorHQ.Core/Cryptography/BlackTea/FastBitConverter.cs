@@ -2,7 +2,7 @@
 
 namespace ImpostorHQ.Core.Cryptography.BlackTea
 {
-    public unsafe class FastBitConverter
+    public unsafe class FastBitConverter : IBitConverter
     {
         #region Int
 
@@ -26,7 +26,7 @@ namespace ImpostorHQ.Core.Cryptography.BlackTea
             }
         }
 
-        public void SetUInt32Unsafe(Span<byte> target, uint value, int index)
+        public void SetUInt32UnsafeFastest(Span<byte> target, uint value, int index)
         {
             var p = &value;
             target[index] = *(byte*) p;
@@ -36,5 +36,14 @@ namespace ImpostorHQ.Core.Cryptography.BlackTea
         }
 
         #endregion
+    }
+
+    public interface IBitConverter
+    {
+        int GetInt32UnsafeFastest(Span<byte> array, int offset);
+
+        uint GetUInt32UnsafeFastest(Span<byte> target, int offset);
+
+        void SetUInt32UnsafeFastest(Span<byte> target, uint value, int index);
     }
 }

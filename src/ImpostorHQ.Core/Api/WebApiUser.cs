@@ -4,30 +4,31 @@ using System.Text;
 using System.Threading.Tasks;
 using Fleck;
 using ImpostorHQ.Core.Api.Message;
+using ImpostorHQ.Core.Config;
 using ImpostorHQ.Core.Cryptography.BlackTea;
 
 namespace ImpostorHQ.Core.Api
 {
     public class WebApiUser
     {
-        private readonly BlackTeaCryptoServiceProvider _crypto;
+        private readonly IBlackTea _crypto;
 
-        private readonly WebApiMessageHandler _handler;
+        private readonly IWebApiMessageHandler _handler;
 
-        private readonly MessageFactory _messageFactory;
+        private readonly IMessageFactory _messageFactory;
 
         private readonly byte[] _password;
 
         public WebApiUser(IWebSocketConnection connection,
-            string password,
-            BlackTeaCryptoServiceProvider csp,
-            WebApiMessageHandler messageHandler,
-            MessageFactory messageFactory)
+            Password password,
+            IBlackTea csp,
+            IWebApiMessageHandler messageHandler,
+            IMessageFactory messageFactory)
         {
             Socket = connection;
             Password = password;
 
-            _password = Encoding.UTF8.GetBytes(password);
+            _password = Encoding.UTF8.GetBytes(password.ToString());
             _crypto = csp;
             _handler = messageHandler;
             _messageFactory = messageFactory;
@@ -35,7 +36,7 @@ namespace ImpostorHQ.Core.Api
 
         public IWebSocketConnection Socket { get; }
 
-        public string Password { get; }
+        public Password Password { get; }
 
         /// <summary>
         ///     Returns a ValueTask that will show if the message was handled successfully.
@@ -85,6 +86,12 @@ namespace ImpostorHQ.Core.Api
         public ValueTask<bool> WriteConsole(string message, string sender)
         {
             return Write(_messageFactory.CreateConsoleLog(message, sender));
+        }
+
+        public ValueTask<bool> Kick()
+        {
+            OnDisconnected?.Invoke();
+            return Write(_messageFactory.CreateKick("kicked.", "the server"));
         }
 
         public event Action? OnDisconnected;

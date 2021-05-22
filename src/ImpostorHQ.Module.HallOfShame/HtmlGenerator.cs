@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Linq;
+using System.Text;
 using ImpostorHQ.Module.Banning;
 using ImpostorHQ.Module.HallOfShame.Properties;
 using Microsoft.Extensions.ObjectPool;
@@ -25,8 +26,14 @@ namespace ImpostorHQ.Module.HallOfShame
             foreach (var databaseBan in _database.Bans)
             {
                 sb.Append("<td>\r\n");
-                sb.Append(databaseBan.PlayerName);
-                sb.Append("</td>\r\n");
+                sb.Append($"\"{databaseBan.PlayerNames[0]}\"");
+                if (databaseBan.PlayerNames.Length > 1)
+                {
+                    sb.Append(" (aka ");
+                    sb.Append(string.Join(", ", databaseBan.PlayerNames.Skip(1).Select(name => $"\"{name}\"")));
+                    sb.Append($")");
+                }
+                sb.Append($", banned for \"{databaseBan.Reason}\"</td>\r\n");
             }
 
             sb.AppendLine(Resources.endHtml);

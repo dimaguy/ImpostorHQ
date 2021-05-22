@@ -4,16 +4,16 @@ using System.Runtime.CompilerServices;
 
 namespace ImpostorHQ.Core.Cryptography.BlackTea
 {
-    public class BlackTeaCryptoServiceProvider
+    public class BlackTeaCryptoServiceProvider : IBlackTea
     {
-        private readonly BlockManipulator _blockManipulator;
+        private readonly IBlockManipulator _blockManipulator;
 
-        private readonly FastBitConverter _fastBitConverter;
+        private readonly IBitConverter _fastBitConverter;
 
-        private readonly KeyGenerator _keyGenerator;
+        private readonly IKeyGenerator _keyGenerator;
 
-        public BlackTeaCryptoServiceProvider(BlockManipulator blockManipulator, KeyGenerator keyGenerator,
-            FastBitConverter bitConverter)
+        public BlackTeaCryptoServiceProvider(IBlockManipulator blockManipulator, IKeyGenerator keyGenerator,
+            IBitConverter bitConverter)
         {
             _blockManipulator = blockManipulator;
             _keyGenerator = keyGenerator;
@@ -41,9 +41,9 @@ namespace ImpostorHQ.Core.Cryptography.BlackTea
                 blockBuffer[0] = _fastBitConverter.GetUInt32UnsafeFastest(result, i);
                 blockBuffer[1] = _fastBitConverter.GetUInt32UnsafeFastest(result, i + 4);
                 _blockManipulator.EncryptBlock(blockBuffer, keyBuffer);
-                _fastBitConverter.SetUInt32Unsafe(byteBuffer, blockBuffer[0], 0);
+                _fastBitConverter.SetUInt32UnsafeFastest(byteBuffer, blockBuffer[0], 0);
                 ms.Write(byteBuffer);
-                _fastBitConverter.SetUInt32Unsafe(byteBuffer, blockBuffer[1], 0);
+                _fastBitConverter.SetUInt32UnsafeFastest(byteBuffer, blockBuffer[1], 0);
                 ms.Write(byteBuffer);
             }
 
@@ -84,17 +84,24 @@ namespace ImpostorHQ.Core.Cryptography.BlackTea
             blockBuffer[0] = _fastBitConverter.GetUInt32UnsafeFastest(source, index);
             blockBuffer[1] = _fastBitConverter.GetUInt32UnsafeFastest(source, index + 4);
             _blockManipulator.DecryptBlock(blockBuffer, key);
-            _fastBitConverter.SetUInt32Unsafe(byteBuffer, blockBuffer[0], 0);
+            _fastBitConverter.SetUInt32UnsafeFastest(byteBuffer, blockBuffer[0], 0);
 
             var remaining = Math.Min(4, destination.Length - index);
             if (remaining < 1) return;
-            byteBuffer[..remaining].CopyTo(destination.Slice(index));
+            byteBuffer[..remaining].CopyTo(destination[index..]);
 
 
-            _fastBitConverter.SetUInt32Unsafe(byteBuffer, blockBuffer[1], 0);
+            _fastBitConverter.SetUInt32UnsafeFastest(byteBuffer, blockBuffer[1], 0);
             remaining = Math.Min(4, destination.Length - index - 4);
             if (remaining < 1) return;
-            byteBuffer[..remaining].CopyTo(destination.Slice(index + 4));
+            byteBuffer[..remaining].CopyTo(destination[(index + 4)..]);
         }
+    }
+
+    public interface IBlackTea
+    {
+        byte[] EncryptRaw(byte[] data, byte[] password);
+
+        byte[] DecryptRaw(byte[] data, byte[] password);
     }
 }

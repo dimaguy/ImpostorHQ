@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -8,23 +9,25 @@ using Fleck;
 using ImpostorHQ.Core.Api.Message;
 using ImpostorHQ.Core.Config;
 using ImpostorHQ.Core.Cryptography;
+using ImpostorHQ.Core.Extensions;
 using ImpostorHQ.Core.Logs;
 using Microsoft.Extensions.Logging;
 
 namespace ImpostorHQ.Core.Api
 {
-    public class WebApi
+    public class WebApi : IDisposable, IWebApi
     {
-        private readonly CryptoManager _crypto;
-        private readonly ILogger<WebApi> _logger;
+        private readonly ICryptoManager _crypto;
 
-        private readonly LogManager _logManager;
+        private readonly ILogger<IWebApi> _logger;
 
-        private readonly MessageFactory _messageFactory;
+        private readonly ILogManager _logManager;
 
-        private readonly MetricsProvider _metricsProvider;
+        private readonly IMessageFactory _messageFactory;
 
-        private readonly string[] _passwords;
+        private readonly IMetricsProvider _metricsProvider;
+
+        private readonly List<Password> _passwords;
 
         private readonly WebSocketServer _server;
 
@@ -32,13 +35,19 @@ namespace ImpostorHQ.Core.Api
 
         private readonly Timer _timer1S;
 
-        private readonly WebApiUserFactory _userFactory;
+        private readonly IWebApiUserFactory _userFactory;
 
         private readonly ConcurrentDictionary<IWebSocketConnection, WebApiUser> _users;
-
-        public WebApi(ILogger<WebApi> logger, MessageFactory messageFactory, PrimaryConfig config,
-            PasswordFile passwordProvider, CryptoManager crypto, WebApiUserFactory webApiUserFactory,
-            MetricsProvider metricsProvider, LogManager logManager)
+        
+        public WebApi(
+            ILogger<IWebApi> logger, 
+            IMessageFactory messageFactory, 
+            ImpostorHqConfig config,
+            IPasswordFile passwordProvider, 
+            ICryptoManager crypto, 
+            IWebApiUserFactory webApiUserFactory,
+            IMetricsProvider metricsProvider,
+            ILogManager logManager)
         {
             _logger = logger;
             _messageFactory = messageFactory;
@@ -55,6 +64,7 @@ namespace ImpostorHQ.Core.Api
 
             _timer1S = new Timer(1000) {AutoReset = true};
             _timer1S.Elapsed += _timer1s_Elapsed;
+            Start();
         }
 
         public ICollection<WebApiUser> Users => _users.Values;
@@ -79,7 +89,7 @@ namespace ImpostorHQ.Core.Api
             }
         }
 
-        public void Start()
+        private void Start()
         {
             _timer1S.Start();
             _server.Start(socket =>
@@ -89,20 +99,13 @@ namespace ImpostorHQ.Core.Api
             });
         }
 
-        public async ValueTask Stop()
-        {
-            await BroadcastAsync(_messageFactory.CreateKick("Impostor Shutting down.", "API"));
-            _timer1S.Dispose();
-            _server.Dispose();
-        }
-
         private void OnOpen(IWebSocketConnection socket)
         {
             socket.OnMessage += async s =>
             {
                 if (!_users.TryGetValue(socket, out var user))
                 {
-                    if (_crypto.TryDecrypt(s, out var decryptResult) && _passwords.Contains(decryptResult.data.Text))
+                    if (_crypto.TryDecrypt(s, out var decryptResult) && _passwords.Select(x=>x.User).Contains(decryptResult.password.User))
                     {
                         var item = _userFactory.Create(socket, decryptResult.password);
                         _users.TryAdd(socket, item);
@@ -114,21 +117,18 @@ namespace ImpostorHQ.Core.Api
                         await item.Write(_messageFactory.CreateLoginApiAccepted(), false);
 
                         await _logManager.LogInformation(
-                            $"User {socket.ConnectionInfo.ClientIpAddress} logged in with \"{decryptResult.password}\".");
+                            $"User {decryptResult.password.User} logged in.");
                     }
                     else
                     {
                         RemoveFromTimeout();
                         await socket.Send(_messageFactory.CreateLoginApiRejected());
                         socket.Close();
-
-                        await _logManager.LogInformation(
-                            $"User {socket.ConnectionInfo.ClientIpAddress} failed to log in.");
                     }
                 }
                 else
                 {
-                    var data = _crypto.Decrypt(s, user.Password);
+                    var data = _crypto.Decrypt(s, user.Password.ToString());
                     if (string.IsNullOrEmpty(data))
                     {
                         return;
@@ -143,6 +143,7 @@ namespace ImpostorHQ.Core.Api
                     {
                         _logger.LogWarning("ImpostorHQ Danger: user {Address} is sending malformed API messages.",
                             socket.ConnectionInfo.ClientIpAddress);
+                        await user.Kick();
                         RemoveUser();
                         return;
                     }
@@ -151,10 +152,8 @@ namespace ImpostorHQ.Core.Api
 
                     if (!success)
                     {
-                        _logger.LogWarning("ImpostorHQ Danger: user {Address} tried to execute an invalid operation.",
-                            socket.ConnectionInfo.ClientIpAddress);
-                        await user.Write(_messageFactory.CreateKick("API Error.", "API Error"));
-
+                        _logger.LogWarning("ImpostorHQ Danger: user {Address} tried to execute an invalid operation.", socket.ConnectionInfo.ClientIpAddress);
+                        await user.Kick();
                         RemoveUser();
 
                         await _logManager.LogError(
@@ -190,5 +189,21 @@ namespace ImpostorHQ.Core.Api
 
             return successes;
         }
+
+        public void Dispose()
+        {
+            BroadcastAsync(_messageFactory.CreateKick("Impostor Shutting down.", "API")).AsTask().Wait();
+            _timer1S.Dispose();
+            _server.Dispose();
+        }
+    }
+
+    public interface IWebApi
+    {
+        ICollection<WebApiUser> Users { get; }
+
+        ValueTask<int> BroadcastAsync(ApiMessage message);
+
+        ValueTask<int> BroadcastAsync(string message);
     }
 }
