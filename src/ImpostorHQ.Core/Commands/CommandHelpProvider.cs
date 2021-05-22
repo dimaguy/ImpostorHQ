@@ -16,7 +16,7 @@ namespace ImpostorHQ.Core.Commands
         public string CreateHelp(IEnumerable<ICommand> commands)
         {
             var sb = _sbPool.Get();
-            sb.Append("\nUse /helpfor [command] to see more information. Commands:");
+            sb.Append("\nUse /help [command] to see more information. Commands:");
             sb.Append("\r\n");
             foreach (var command in commands)
             {

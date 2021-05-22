@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using ImpostorHQ.Core.Config;
 using ImpostorHQ.Core.Properties;
@@ -11,7 +12,7 @@ namespace ImpostorHQ.Core.Http
     {
         private readonly ImpostorHqConfig _config;
 
-        private readonly string[] _passwords;
+        private readonly List<Password> _passwords;
 
         private readonly IHttpPlayerListProvider _playerList;
         private readonly HttpServer _server;
@@ -25,7 +26,7 @@ namespace ImpostorHQ.Core.Http
             _server = server;
             _config = config;
             _playerList = playerListProvider;
-            _passwords = passwordFile.Passwords.Select(p=>p.Key).ToArray();
+            _passwords = passwordFile.Passwords;
         }
 
         public void Configure()
