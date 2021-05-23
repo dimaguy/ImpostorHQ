@@ -11,19 +11,20 @@ using ImpostorHQ.Core.Api;
 using ImpostorHQ.Core.Commands.Handler;
 using ImpostorHQ.Core.Extensions;
 using ImpostorHQ.Core.Logs;
+using ImpostorHQ.Module.Banning.Database;
 using Microsoft.Extensions.ObjectPool;
 
 namespace ImpostorHQ.Module.Banning.Handler
 {
     public class RecordOperationHandler
     {
-        private readonly BanDatabase _database;
+        private readonly IDatabase<string, PlayerBan> _database;
 
         private readonly ILogManager _logManager;
 
         private readonly IGameManager _gameManager;
 
-        public RecordOperationHandler(BanDatabase database, ILogManager logManager, IGameManager gameManager)
+        public RecordOperationHandler(IDatabase<string, PlayerBan> database, ILogManager logManager, IGameManager gameManager)
         {
             _database = database;
             _logManager = logManager;
@@ -95,13 +96,12 @@ namespace ImpostorHQ.Module.Banning.Handler
                         }
                         await HandleRemoveIp(target, obj.User);
                     }
-                    else await HandleRemoveName(target, obj.User);
+                    else await obj.User.WriteConsole($"Unable to comply: You cannot remove by name!", "ban system");
                     break;
                 }
 
                 case "exists":
                 {
-                    var reason = obj.Tokens[3];
                     var target = obj.Tokens[2];
                     if (isIpAddress)
                     {
@@ -188,9 +188,9 @@ namespace ImpostorHQ.Module.Banning.Handler
                 return;
             }
 
-            await _database.Add(new PlayerBan(target, new string[]
+            await _database.Add(target, new PlayerBan(target, new string[]
             {
-                $"Dashboard: {user.Password}"
+                $"Dashboard: {user.Password.User}"
             }, DateTime.Now, names.ToArray(), reason));
 
             await user.WriteConsole($"IP Banned {count} instances, with {uniqueNames} unique names.", "ban system");
@@ -202,21 +202,14 @@ namespace ImpostorHQ.Module.Banning.Handler
         {
             if (IsIpAInvalid(target))
             {
-                await user.WriteConsole($"Unable to comply: Invalid target address. The format is: address:'name'", "ban system");
+                await user.WriteConsole($"Unable to comply: Invalid target address.", "ban system");
                 return;
             }
-
-            if (string.IsNullOrEmpty(name))
-            {
-                await user.WriteConsole($"Unable to comply: Invalid target name. The format is: address:'name'", "ban system");
-                return;
-            }
-
 
             var ban = new PlayerBan(target,
                 new string[]
                 {
-                    $"Dashboard: {user.Password} [ban offline]"
+                    $"Dashboard: {user.Password.User} [ban offline]"
                 },
                 DateTime.Now,
                 new string[]
@@ -224,7 +217,7 @@ namespace ImpostorHQ.Module.Banning.Handler
                     name
                 }, reason);
 
-            if (!await _database.Add(ban))
+            if (!await _database.Add(ban.IpAddress, ban))
             {
                 await user.WriteConsole($"Unable to comply: Ban already exists.", "ban handler");
             }
@@ -234,21 +227,9 @@ namespace ImpostorHQ.Module.Banning.Handler
             }
         }
 
-        private async ValueTask HandleRemoveName(string target, WebApiUser user)
-        {
-            var record = _database.Get(target);
-            if (record == null)
-            {
-                await user.WriteConsole($"Unable to comply: no such record.", "ban system");
-                return;
-            }
-
-            await HandleRemoveIp(record.Value.IpAddress, user);
-        }
-
         private async ValueTask HandleRemoveIp(string target, WebApiUser user)
         {
-            if (!await _database.Remove(target))
+            if (!await _database.RemoveFast(target))
             {
                 await user.WriteConsole($"Unable to comply: no such record.", "ban system");
                 return;
@@ -261,13 +242,13 @@ namespace ImpostorHQ.Module.Banning.Handler
         private async ValueTask HandleExistsName(string target, WebApiUser user)
         {
             var record = _database.Get(target);
-            if (!record.HasValue)
+            if (record.Equals(default(PlayerBan)))
             {
                 await user.WriteConsole($"No such record found.", "ban handler");
             }
             else
             {
-                await user.WriteConsole($"Record identified: {record.Value.IpAddress}", "ban handler");
+                await user.WriteConsole($"Record identified: {record.IpAddress}", "ban handler");
             }
         }
 
@@ -286,34 +267,34 @@ namespace ImpostorHQ.Module.Banning.Handler
         private async ValueTask HandleInfoName(string target, WebApiUser user)
         {
             var record = _database.Get(target);
-            if (!record.HasValue)
+            if (record.Equals(default(PlayerBan)))
             {
                 await user.WriteConsole($"No such record found.", "ban handler");
             }
             else
             {
                 await user.WriteConsole(
-                    $"\nAddress: {record.Value.IpAddress},\n" +
-                    $"Names: {string.Join(", ", record.Value.PlayerNames.Select(name => $"\"{name}\""))},\n" + 
-                    $"Date: {record.Value.Time},\n" +
-                    $"Witnesses: {string.Join(", ", record.Value.Witnesses.Select(witness => $"\"{witness}\""))}\n",
+                    $"\nAddress: {record.IpAddress},\n" +
+                    $"Names: {string.Join(", ", record.PlayerNames.Select(name => $"\"{name}\""))},\n" + 
+                    $"Date: {record.Time},\n" +
+                    $"Witnesses: {string.Join(", ", record.Witnesses.Select(witness => $"\"{witness}\""))}\n",
                     "ban handler");
             }
         }
 
         private async ValueTask HandleInfoAddress(string target, WebApiUser user)
         {
-            var record = _database.GetFast(target);
-            if (!record.HasValue)
+            var record = _database.Get(target);
+            if (record.Equals(default(PlayerBan)))
             {
                 await user.WriteConsole($"No such record found.", "ban handler");
             }
             else
             {
                 await user.WriteConsole(
-                    $"\nNames: {string.Join(", ", record.Value.PlayerNames.Select(name=>$"\"{name}\""))},\n" +
-                    $"Date: {record.Value.Time},\n" +
-                    $"Witnesses: {string.Join(", ", record.Value.Witnesses.Select(witness => $"\"{witness}\""))}\n",
+                    $"\nNames: {string.Join(", ", record.PlayerNames.Select(name=>$"\"{name}\""))},\n" +
+                    $"Date: {record.Time},\n" +
+                    $"Witnesses: {string.Join(", ", record.Witnesses.Select(witness => $"\"{witness}\""))}\n",
                     "ban handler");
             }
         }

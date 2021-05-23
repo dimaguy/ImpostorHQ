@@ -6,6 +6,7 @@ using ImpostorHQ.Core.Api;
 using ImpostorHQ.Core.Commands.Handler;
 using ImpostorHQ.Core.Extensions;
 using ImpostorHQ.Core.Logs;
+using ImpostorHQ.Module.Banning.Database;
 using Microsoft.Extensions.ObjectPool;
 
 namespace ImpostorHQ.Module.Banning.Handler
@@ -14,11 +15,11 @@ namespace ImpostorHQ.Module.Banning.Handler
     {
         private readonly ObjectPool<StringBuilder> _sbPool;
 
-        private readonly BanDatabase _database;
+        private readonly IDatabase<string, PlayerBan> _database;
 
         private readonly ILogManager _logManager;
 
-        public FileOperationHandler(ObjectPool<StringBuilder> sbPool, BanDatabase database, ILogManager logManager)
+        public FileOperationHandler(ObjectPool<StringBuilder> sbPool, IDatabase<string, PlayerBan> database, ILogManager logManager)
         {
             _sbPool = sbPool;
             _database = database;
@@ -48,7 +49,7 @@ namespace ImpostorHQ.Module.Banning.Handler
         {
             var sb = _sbPool.Get();
             sb.Append("\nLegend: IP IpAddress, Time, Witness Count, Names, Reason for ban\r\n");
-            foreach (var databaseBan in _database.Bans)
+            foreach (var databaseBan in _database.Elements)
             {
                 sb.Append(databaseBan.IpAddress)
                     .Append("; ")
@@ -68,7 +69,7 @@ namespace ImpostorHQ.Module.Banning.Handler
 
         private async ValueTask HandlePurge(WebApiUser source)
         {
-            var count = _database.Bans.Count();
+            var count = _database.Elements.Count();
             await _database.Clear();
             await source.WriteConsole($"Purged {count} records.", "ban system");
 

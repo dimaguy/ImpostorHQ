@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Impostor.Api.Events;
 using Impostor.Api.Events.Managers;
 using Impostor.Api.Events.Player;
@@ -10,7 +11,9 @@ namespace ImpostorHQ.Core.Commands.Handler
         private readonly ICommandHelpProvider _helpProvider;
         private readonly ICommandParser<PlayerCommand> _parser;
 
-        public PlayerCommandHandler(ICommandParser<PlayerCommand> parser, IEventManager eventManager,
+        public PlayerCommandHandler(
+            ICommandParser<PlayerCommand> parser,
+            IEventManager eventManager,
             ICommandHelpProvider helpProvider)
         {
             _parser = parser;
@@ -25,6 +28,17 @@ namespace ImpostorHQ.Core.Commands.Handler
 
         private async void InformationCommandRequested(PlayerCommandNotification obj)
         {
+            if (obj.Tokens == null)
+            {
+                var lines = _helpProvider.CreateHelp(_parser.Commands).Split('\n');
+                foreach (var line in lines.Take(lines.Length - 1))
+                {
+                    await obj.Player.Character!.SendChatToPlayerAsync(line);
+                }
+
+                return;
+            }
+
             var target = _parser.Commands.FirstOrDefault(x => x.Prefix.Equals(obj.Tokens![0]));
 
             if (target == null)

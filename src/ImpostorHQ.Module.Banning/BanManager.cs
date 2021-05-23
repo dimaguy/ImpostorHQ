@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
@@ -14,6 +15,7 @@ using ImpostorHQ.Core.Extensions;
 using ImpostorHQ.Core.Logs;
 using ImpostorHQ.Http;
 using ImpostorHQ.Http.Handler;
+using ImpostorHQ.Module.Banning.Database;
 using ImpostorHQ.Module.Banning.Handler;
 using Microsoft.Extensions.ObjectPool;
 
@@ -21,7 +23,7 @@ namespace ImpostorHQ.Module.Banning
 {
     public class BanManager : IEventListener
     {
-        private readonly BanDatabase _database;
+        private readonly IDatabase<string, PlayerBan> _banDatabase;
 
         private readonly ObjectPool<StringBuilder> _sbPool;
 
@@ -31,18 +33,18 @@ namespace ImpostorHQ.Module.Banning
             IDashboardCommandHandler handler,
             HttpServer httpServer, 
             IPasswordFile passwordFile,
-            BanDatabase database, 
+            IDatabase<string, PlayerBan> banDatabase, 
             ObjectPool<StringBuilder> sbPool,
             IEventManager eventManager, 
             ILogManager logManager, 
             FileOperationHandler fileOperationHandler, 
             RecordOperationHandler operationHandler)
         {
-            _database = database;
+            _banDatabase = banDatabase;
             _sbPool = sbPool;
             _logManager = logManager;
 
-            logManager.LogInformation($"Ban Manager loaded {_database.Bans.Count()} bans.");
+            logManager.LogInformation($"Ban Manager loaded {_banDatabase.Elements.Count()} bans.");
 
             handler.AddCommand(new DashboardCommand(operationHandler.Handle, "/ban",
                 "ban database record operations. Usage: /ban add/remove/exists/info ip/name [--offline] [Player Name / IP Address] [reason]. Note that the player name and reason may be supplied in quotes (\").",
@@ -63,22 +65,29 @@ namespace ImpostorHQ.Module.Banning
         {
             var sb = _sbPool.Get();
 
-            sb.Append("IP IpAddress,Date,Witnesses\r\n,Names,Reason");
-            foreach (var databaseBan in _database.Bans)
+            sb.Append("IP Addr,Date,Witnesses,Names,Reason\r\n");
+            foreach (var databaseBan in _banDatabase.Elements)
             {
                 sb.Append(databaseBan.IpAddress).Append(',');
                 sb.Append(databaseBan.Time.ToString("s")).Append(',');
+
+                sb.Append('"');
                 foreach (var databaseBanWitness in databaseBan.Witnesses)
                 {
-                    sb.Append(databaseBanWitness).Append(';');
+                    sb.Append(databaseBanWitness.Replace("\"", "\"\"")).Append(';');
                 }
+                sb.Append("\",");
 
-                foreach (var databaseBanWitness in databaseBan.PlayerNames)
+                sb.Append('"');
+                foreach (var playerName in databaseBan.PlayerNames)
                 {
-                    sb.Append(databaseBanWitness).Append(';');
+                    sb.Append(playerName.Replace("\"", "\"\"")).Append(';');
                 }
+                sb.Append("\",");
 
-                sb.Append(databaseBan.Reason);
+                sb.Append('"');
+                sb.Append(databaseBan.Reason.Replace("\"", "\"\""));
+                sb.Append('"');
 
                 sb.Append("\r\n");
             }
@@ -92,12 +101,12 @@ namespace ImpostorHQ.Module.Banning
         [EventListener(EventPriority.Highest)]
         public async void PlayerConnection(IGamePlayerJoinedEvent @event)
         {
-            var record = _database.GetFast(@event.Player.Client.Connection!.EndPoint.Address.ToString());
-            if (record.HasValue)
+            var record = _banDatabase.Get(@event.Player.Client.Connection!.EndPoint.Address.ToString());
+            if (!record.Equals(default(PlayerBan)))
             {
                 await _logManager.LogInformation(
                     $"Ban Manager: {@event.Player.Client.Connection!.EndPoint.Address} tried to join but is banned.");
-                await @event.Player.Client.DisconnectAsync(DisconnectReason.Custom, record.Value.Reason);
+                await @event.Player.Client.DisconnectAsync(DisconnectReason.Custom, record.Reason);
             }
         }
     }

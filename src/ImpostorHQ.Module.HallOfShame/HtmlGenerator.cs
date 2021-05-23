@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using System.Text;
 using ImpostorHQ.Module.Banning;
+using ImpostorHQ.Module.Banning.Database;
 using ImpostorHQ.Module.HallOfShame.Properties;
 using Microsoft.Extensions.ObjectPool;
 
@@ -8,11 +9,11 @@ namespace ImpostorHQ.Module.HallOfShame
 {
     public class HtmlGenerator
     {
-        private readonly BanDatabase _database;
+        private readonly IDatabase<string, PlayerBan> _database;
 
         private readonly ObjectPool<StringBuilder> _sbPool;
 
-        public HtmlGenerator(BanDatabase banDatabase, ObjectPool<StringBuilder> sbPool)
+        public HtmlGenerator(IDatabase<string, PlayerBan> banDatabase, ObjectPool<StringBuilder> sbPool)
         {
             _database = banDatabase;
             _sbPool = sbPool;
@@ -23,7 +24,7 @@ namespace ImpostorHQ.Module.HallOfShame
             var sb = _sbPool.Get();
 
             sb.AppendLine(Resources.startHtml);
-            foreach (var databaseBan in _database.Bans)
+            foreach (var databaseBan in _database.Elements)
             {
                 sb.Append("<td>\r\n");
                 sb.Append($"\"{databaseBan.PlayerNames[0]}\"");
