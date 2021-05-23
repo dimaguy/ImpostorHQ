@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\src\ImpostorHQ.Core\ImpostorHQ.Core.csproj" />
+    <ProjectReference Include="..\ImpostorHQ.Core\ImpostorHQ.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
