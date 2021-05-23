@@ -1,0 +1,12 @@
+.header-img {
+    background: url('hq_header.png');
+    background-repeat: no-repeat;
+    background-size: contain;
+    height: 25%;
+    max-width: 25%;
+}
+
+.header {
+    color: white;
+    text-align: left;
+}
