@@ -17,9 +17,9 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ImpostorHQ.Tests", "src\Imp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ImpostorHQ.Benchmark", "src\ImpostorHQ.Benchmark\ImpostorHQ.Benchmark.csproj", "{227A8AED-29CB-4C7D-9FE7-D73ED56C42A3}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ImpostorHQ.Module.Test", "ImpostorHQ.Module.Test\ImpostorHQ.Module.Test.csproj", "{9EE5A2BB-0E22-4416-BBDF-9ABD140FA6FD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ImpostorHQ.Module.Test", "src\ImpostorHQ.Module.Test\ImpostorHQ.Module.Test.csproj", "{9EE5A2BB-0E22-4416-BBDF-9ABD140FA6FD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImpostorHQ.Module.Lobby", "ImpostorHQ.Module.Lobby\ImpostorHQ.Module.Lobby.csproj", "{1E91BF3E-299A-4DC6-BEF3-AA38BC80BF13}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImpostorHQ.Module.Lobby", "src\ImpostorHQ.Module.Lobby\ImpostorHQ.Module.Lobby.csproj", "{1E91BF3E-299A-4DC6-BEF3-AA38BC80BF13}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
